@@ -651,7 +651,8 @@ void VulkanSample::generate_frame_structs()
 bool VulkanSample::create_instance()
 {
     auto extensions     = vk_window_helper_->GetWindowExtensions();
-    auto instance_chain = common::instance::create_context() | common::instance::set_application_name("My Vulkan App") |
+    auto instance_chain = common::instance::create_context() | 
+                          common::instance::set_application_name("My Vulkan App") |
                           common::instance::set_engine_name("My Engine") |
                           common::instance::set_application_version(1, 3, 0) |
                           common::instance::add_validation_layers({"VK_LAYER_KHRONOS_validation"}) |
