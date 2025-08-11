@@ -125,13 +125,13 @@ Diagnostics:
       cppcoreguidelines-special-member-functions.AllowSoleDefaultDtor: true
       cppcoreguidelines-special-member-functions.AllowMissingMoveFunctions: true
   
-  # 过滤掉第三方库和依赖的头文件
-  Suppressed:
-    - path: 'build|external|third_party|thirdparty|3rdparty|vendor|deps|dependencies'
-      regex: '.*'
+
+# 头文件过滤（排除第三方库）
+HeaderFilterRegex: '^(?!.*(build|external|third_party|thirdparty|3rdparty|vendor|deps|dependencies)).*$'
+
   
-  # 头文件未包含检测
-  MissingIncludes: Strict
+# 头文件未包含检测
+MissingIncludes: None
 
 # 代码完成设定
 Completion:
