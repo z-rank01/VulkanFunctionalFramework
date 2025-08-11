@@ -1,8 +1,9 @@
 #ifndef COMMON_H
 #define COMMON_H
 
-#include <vulkan/vulkan.h>
-#include <vulkan/vulkan_core.h>
+// #include <vulkan/vulkan.h>
+// #include <vulkan/vulkan_core.h>
+#include <vulkan/vulkan.hpp>
 
 #include <algorithm>
 #include <cassert>
@@ -15,6 +16,9 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+#include <vulkan/vulkan_funcs.hpp>
+#include <vulkan/vulkan_handles.hpp>
+#include <vulkan/vulkan_structs.hpp>
 
 #include "_callable/callable.h"
 
@@ -138,30 +142,43 @@ inline auto create_vk_instance()
 {
     return [](CommVkInstanceContext ctx) -> callable::Chainable<CommVkInstanceContext>
     {
-        VkApplicationInfo app_info{};
-        app_info.sType              = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-        app_info.pNext              = ctx.app_info_.p_next_;
-        app_info.pApplicationName   = ctx.app_info_.application_name_.c_str();
-        app_info.applicationVersion = ctx.app_info_.application_version_;
-        app_info.pEngineName        = ctx.app_info_.engine_name_.c_str();
-        app_info.engineVersion      = ctx.app_info_.engine_version_;
-        app_info.apiVersion         = ctx.app_info_.highest_api_version_;
+        vk::ApplicationInfo app_info;
+        app_info.setPApplicationName(ctx.app_info_.application_name_.c_str())
+            .setApplicationVersion(ctx.app_info_.application_version_)
+            .setPEngineName(ctx.app_info_.engine_name_.c_str())
+            .setEngineVersion(ctx.app_info_.engine_version_)
+            .setApiVersion(ctx.app_info_.highest_api_version_);
+        // VkApplicationInfo app_info{};
+        // app_info.sType              = VK_STRUCTURE_TYPE_APPLICATION_INFO;
+        // app_info.pNext              = ctx.app_info_.p_next_;
+        // app_info.pApplicationName   = ctx.app_info_.application_name_.c_str();
+        // app_info.applicationVersion = ctx.app_info_.application_version_;
+        // app_info.pEngineName        = ctx.app_info_.engine_name_.c_str();
+        // app_info.engineVersion      = ctx.app_info_.engine_version_;
+        // app_info.apiVersion         = ctx.app_info_.highest_api_version_;
 
-        VkInstanceCreateInfo create_info{};
-        create_info.sType             = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-        create_info.pApplicationInfo  = &app_info;
-        create_info.enabledLayerCount = static_cast<uint32_t>(ctx.instance_info_.required_layers_.size());
-        create_info.ppEnabledLayerNames =
-            ctx.instance_info_.required_layers_.empty() ? nullptr : ctx.instance_info_.required_layers_.data();
-        create_info.enabledExtensionCount = static_cast<uint32_t>(ctx.instance_info_.required_extensions_.size());
-        create_info.ppEnabledExtensionNames =
-            ctx.instance_info_.required_extensions_.empty() ? nullptr : ctx.instance_info_.required_extensions_.data();
+        vk::InstanceCreateInfo create_info;
+        create_info.setPApplicationInfo(&app_info)
+            .setPEnabledLayerNames(ctx.instance_info_.required_layers_)
+            .setPEnabledExtensionNames(ctx.instance_info_.required_extensions_);
 
-        VkResult result = vkCreateInstance(&create_info, nullptr, &ctx.vk_instance_);
-        if (result != VK_SUCCESS)
-        {
-            throw std::runtime_error("Failed to create Vulkan instance. Error code: " + std::to_string(result));
-        }
+        // VkInstanceCreateInfo create_info{};
+        // create_info.sType             = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+        // create_info.pApplicationInfo  = &app_info;
+        // create_info.enabledLayerCount = static_cast<uint32_t>(ctx.instance_info_.required_layers_.size());
+        // create_info.ppEnabledLayerNames =
+        //     ctx.instance_info_.required_layers_.empty() ? nullptr : ctx.instance_info_.required_layers_.data();
+        // create_info.enabledExtensionCount = static_cast<uint32_t>(ctx.instance_info_.required_extensions_.size());
+        // create_info.ppEnabledExtensionNames =
+        //     ctx.instance_info_.required_extensions_.empty() ? nullptr : ctx.instance_info_.required_extensions_.data();
+
+        ctx.vk_instance_ = vk::createInstance(create_info, nullptr);
+        // if (result != vk::ObjectType::eInstance)
+        // {
+        //     // vkCreateInstance failed
+        //     Logger::LogError("Failed to create Vulkan instance: " + std::string(vk::to_string(result)));
+        //     throw std::runtime_error("Failed to create Vulkan instance.");
+        // }
 
         return callable::make_chain(std::move(ctx));
     };

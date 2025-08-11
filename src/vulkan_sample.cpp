@@ -1,7 +1,9 @@
+#define VULKAN_HPP_DISPATCH_LOADER_DYNAMIC 1
+
 #include "vulkan_sample.h"
 
 #include <cmath>
-#include <vulkan/vulkan_core.h>
+#include <vulkan/vulkan.hpp>
 
 #include <algorithm>
 #include <cstdint>
@@ -10,6 +12,8 @@
 
 #include "_callable/callable.h"
 #include "_templates/common.h"
+
+VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE;
 
 using namespace templates;
 
@@ -30,6 +34,7 @@ VulkanSample::VulkanSample(SEngineConfig config) : engine_config_(std::move(conf
 void VulkanSample::Initialize()
 {
     // initialize SDL, vulkan, and camera
+    initialize_vulkan_hpp();
     initialize_sdl();
     initialize_camera();
     initialize_vulkan();
@@ -135,6 +140,12 @@ VulkanSample::~VulkanSample()
 
     // 重置单例指针
     instance = nullptr;
+}
+
+
+void VulkanSample::initialize_vulkan_hpp()
+{
+    VULKAN_HPP_DEFAULT_DISPATCHER.init();
 }
 
 // Initialize the engine
