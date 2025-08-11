@@ -81,7 +81,7 @@ int main()
 
     // general config
 
-    ConfigReader config_reader(R"(E:\Projects\ZRenderEngine\config\win64\app_config.json)");
+    ConfigReader config_reader(R"(E:\Projects\VulkanFunctionalFramework\config\win64\app_config.json)");
     SGeneralConfig general_config;
     if (!config_reader.TryParseGeneralConfig(general_config))
     {
