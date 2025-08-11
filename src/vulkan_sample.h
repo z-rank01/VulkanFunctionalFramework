@@ -209,6 +209,7 @@ private:
     bool camera_pan_mode_ = false; // 相机平移模式标志（中键）
     float orbit_distance_ = 0.0F;  // 轨道旋转时与中心的距离
 
+    void initialize_vulkan_hpp();
     void initialize_sdl();
     void initialize_vulkan();
     void initialize_camera();
