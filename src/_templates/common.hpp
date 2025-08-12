@@ -1,8 +1,10 @@
 #ifndef COMMON_H
 #define COMMON_H
 
-#include <vulkan/vulkan.h>
-#include <vulkan/vulkan_core.h>
+// #include <vulkan/vulkan.h>
+// #include <vulkan/vulkan_core.h>
+#include <algorithm>
+#include <vulkan/vulkan.hpp>
 
 #include <algorithm>
 #include <cassert>
@@ -15,6 +17,10 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+#include <vulkan/vulkan_enums.hpp>
+#include <vulkan/vulkan_funcs.hpp>
+#include <vulkan/vulkan_handles.hpp>
+#include <vulkan/vulkan_structs.hpp>
 
 #include "_callable/callable.h"
 
@@ -48,7 +54,7 @@ struct CommVkInstanceContext
     } instance_info_;
 
     // vulkan natives
-    VkInstance vk_instance_ = VK_NULL_HANDLE;
+    vk::Instance vk_instance_ = VK_NULL_HANDLE;
 };
 
 /// @brief Instance functions using Monad-Like Chain
@@ -138,31 +144,19 @@ inline auto create_vk_instance()
 {
     return [](CommVkInstanceContext ctx) -> callable::Chainable<CommVkInstanceContext>
     {
-        VkApplicationInfo app_info{};
-        app_info.sType              = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-        app_info.pNext              = ctx.app_info_.p_next_;
-        app_info.pApplicationName   = ctx.app_info_.application_name_.c_str();
-        app_info.applicationVersion = ctx.app_info_.application_version_;
-        app_info.pEngineName        = ctx.app_info_.engine_name_.c_str();
-        app_info.engineVersion      = ctx.app_info_.engine_version_;
-        app_info.apiVersion         = ctx.app_info_.highest_api_version_;
+        vk::ApplicationInfo app_info;
+        app_info.setPApplicationName(ctx.app_info_.application_name_.c_str())
+            .setApplicationVersion(ctx.app_info_.application_version_)
+            .setPEngineName(ctx.app_info_.engine_name_.c_str())
+            .setEngineVersion(ctx.app_info_.engine_version_)
+            .setApiVersion(ctx.app_info_.highest_api_version_);
 
-        VkInstanceCreateInfo create_info{};
-        create_info.sType             = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-        create_info.pApplicationInfo  = &app_info;
-        create_info.enabledLayerCount = static_cast<uint32_t>(ctx.instance_info_.required_layers_.size());
-        create_info.ppEnabledLayerNames =
-            ctx.instance_info_.required_layers_.empty() ? nullptr : ctx.instance_info_.required_layers_.data();
-        create_info.enabledExtensionCount = static_cast<uint32_t>(ctx.instance_info_.required_extensions_.size());
-        create_info.ppEnabledExtensionNames =
-            ctx.instance_info_.required_extensions_.empty() ? nullptr : ctx.instance_info_.required_extensions_.data();
+        vk::InstanceCreateInfo create_info;
+        create_info.setPApplicationInfo(&app_info)
+            .setPEnabledLayerNames(ctx.instance_info_.required_layers_)
+            .setPEnabledExtensionNames(ctx.instance_info_.required_extensions_);
 
-        VkResult result = vkCreateInstance(&create_info, nullptr, &ctx.vk_instance_);
-        if (result != VK_SUCCESS)
-        {
-            throw std::runtime_error("Failed to create Vulkan instance. Error code: " + std::to_string(result));
-        }
-
+        ctx.vk_instance_ = vk::createInstance(create_info, nullptr);
         return callable::make_chain(std::move(ctx));
     };
 }
@@ -196,20 +190,20 @@ inline auto validate_context()
 struct CommVkPhysicalDeviceContext
 {
     // parent instance context
-    VkInstance vk_instance_ = VK_NULL_HANDLE;
+    vk::Instance vk_instance_ = VK_NULL_HANDLE;
 
     // physical device selection criteria
     struct SelectionCriteria
     {
-        std::optional<VkPhysicalDeviceType> preferred_device_type_ = std::nullopt;
+        std::optional<vk::PhysicalDeviceType> preferred_device_type_ = std::nullopt;
         std::optional<uint32_t> minimum_api_version_               = std::nullopt;
-        VkSurfaceKHR surface_                                      = VK_NULL_HANDLE;
+        vk::SurfaceKHR surface_                                      = VK_NULL_HANDLE;
 
         // required features
-        VkPhysicalDeviceFeatures required_features_{};
-        VkPhysicalDeviceVulkan11Features required_features_11_{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES};
-        VkPhysicalDeviceVulkan12Features required_features_12_{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES};
-        VkPhysicalDeviceVulkan13Features required_features_13_{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES};
+        vk::PhysicalDeviceFeatures required_features_{};
+        vk::PhysicalDeviceVulkan11Features required_features_11_;
+        vk::PhysicalDeviceVulkan12Features required_features_12_;
+        vk::PhysicalDeviceVulkan13Features required_features_13_;
 
         // required extensions
         std::vector<const char*> required_extensions_;
@@ -217,15 +211,15 @@ struct CommVkPhysicalDeviceContext
         // queue requirements
         struct QueueRequirement
         {
-            VkQueueFlags queue_flags_;
+            vk::QueueFlags queue_flags_;
             uint32_t min_queue_count_     = 1;
             bool require_present_support_ = false;
         };
         std::vector<QueueRequirement> queue_requirements_;
 
         // memory requirements
-        std::optional<VkDeviceSize> minimum_device_memory_ = std::nullopt;
-        std::optional<VkDeviceSize> minimum_host_memory_   = std::nullopt;
+        std::optional<vk::DeviceSize> minimum_device_memory_ = std::nullopt;
+        std::optional<vk::DeviceSize> minimum_host_memory_   = std::nullopt;
 
         // scoring preferences
         bool prefer_discrete_gpu_             = true;
@@ -233,17 +227,17 @@ struct CommVkPhysicalDeviceContext
     } selection_criteria_;
 
     // vulkan natives
-    VkPhysicalDevice vk_physical_device_ = VK_NULL_HANDLE;
-    VkPhysicalDeviceProperties device_properties_{};
-    VkPhysicalDeviceFeatures device_features_{};
-    VkPhysicalDeviceMemoryProperties memory_properties_{};
-    std::vector<VkQueueFamilyProperties> queue_family_properties_;
-    std::vector<VkExtensionProperties> available_extensions_;
+    vk::PhysicalDevice vk_physical_device_ = VK_NULL_HANDLE;
+    vk::PhysicalDeviceProperties device_properties_{};
+    vk::PhysicalDeviceFeatures device_features_{};
+    vk::PhysicalDeviceMemoryProperties memory_properties_{};
+    std::vector<vk::QueueFamilyProperties> queue_family_properties_;
+    std::vector<vk::ExtensionProperties> available_extensions_;
 
     // swapchain support info (added for swapchain creation)
-    VkSurfaceCapabilitiesKHR surface_capabilities_{};
-    std::vector<VkSurfaceFormatKHR> surface_formats_;
-    std::vector<VkPresentModeKHR> present_modes_;
+    vk::SurfaceCapabilitiesKHR surface_capabilities_{};
+    std::vector<vk::SurfaceFormatKHR> surface_formats_;
+    std::vector<vk::PresentModeKHR> present_modes_;
     bool swapchain_support_queried_ = false;
 };
 
@@ -253,7 +247,7 @@ namespace physicaldevice
 /// @brief Creates initial physical device context from instance context
 /// @param instance Vulkan instance handle
 /// @return CommVkPhysicalDeviceContext with instance set
-inline auto create_physical_device_context(VkInstance instance)
+inline auto create_physical_device_context(vk::Instance instance)
 {
     return callable::make_chain(
         [instance]() -> CommVkPhysicalDeviceContext
@@ -267,7 +261,7 @@ inline auto create_physical_device_context(VkInstance instance)
 /// @brief Sets surface for present support checking
 /// @param surface Vulkan surface handle
 /// @return Callable that has set the surface in the context
-inline auto set_surface(VkSurfaceKHR surface)
+inline auto set_surface(vk::SurfaceKHR surface)
 {
     return [surface](CommVkPhysicalDeviceContext ctx) -> callable::Chainable<CommVkPhysicalDeviceContext>
     {
@@ -306,7 +300,7 @@ inline auto require_extensions(const std::vector<const char*>& extensions)
 /// @brief Sets required Vulkan 1.0 features
 /// @param features Vulkan physical device features to require
 /// @return Callable that has set the required features in the context
-inline auto require_features(const VkPhysicalDeviceFeatures& features)
+inline auto require_features(const vk::PhysicalDeviceFeatures& features)
 {
     return [features](CommVkPhysicalDeviceContext ctx) -> callable::Chainable<CommVkPhysicalDeviceContext>
     {
@@ -318,7 +312,7 @@ inline auto require_features(const VkPhysicalDeviceFeatures& features)
 /// @brief Sets required Vulkan 1.1 features
 /// @param features Vulkan 1.1 physical device features to require
 /// @return Callable that has set the required features in the context
-inline auto require_features_11(const VkPhysicalDeviceVulkan11Features& features)
+inline auto require_features_11(const vk::PhysicalDeviceVulkan11Features& features)
 {
     return [features](CommVkPhysicalDeviceContext ctx) -> callable::Chainable<CommVkPhysicalDeviceContext>
     {
@@ -330,7 +324,7 @@ inline auto require_features_11(const VkPhysicalDeviceVulkan11Features& features
 /// @brief Sets required Vulkan 1.2 features
 /// @param features Vulkan 1.2 physical device features to require
 /// @return Callable that has set the required features in the context
-inline auto require_features_12(const VkPhysicalDeviceVulkan12Features& features)
+inline auto require_features_12(const vk::PhysicalDeviceVulkan12Features& features)
 {
     return [features](CommVkPhysicalDeviceContext ctx) -> callable::Chainable<CommVkPhysicalDeviceContext>
     {
@@ -342,7 +336,7 @@ inline auto require_features_12(const VkPhysicalDeviceVulkan12Features& features
 /// @brief Sets required Vulkan 1.3 features
 /// @param features Vulkan 1.3 physical device features to require
 /// @return Callable that has set the required features in the context
-inline auto require_features_13(const VkPhysicalDeviceVulkan13Features& features)
+inline auto require_features_13(const vk::PhysicalDeviceVulkan13Features& features)
 {
     return [features](CommVkPhysicalDeviceContext ctx) -> callable::Chainable<CommVkPhysicalDeviceContext>
     {
@@ -356,7 +350,7 @@ inline auto require_features_13(const VkPhysicalDeviceVulkan13Features& features
 /// @param min_count Minimum number of queues required (default is 1)
 /// @param require_present Whether the queue must support present (default is true)
 /// @return Callable that has added the queue requirement to the context
-inline auto require_queue(VkQueueFlags queue_flags, uint32_t min_count = 1, bool require_present = true)
+inline auto require_queue(vk::QueueFlags queue_flags, uint32_t min_count = 1, bool require_present = true)
 {
     return [queue_flags, min_count, require_present](
                CommVkPhysicalDeviceContext ctx) -> callable::Chainable<CommVkPhysicalDeviceContext>
@@ -373,7 +367,7 @@ inline auto require_queue(VkQueueFlags queue_flags, uint32_t min_count = 1, bool
 /// @brief Sets minimum device memory requirement
 /// @param min_memory Minimum device memory size in bytes
 /// @return Callable that has set the minimum device memory in the context
-inline auto require_minimum_device_memory(VkDeviceSize min_memory)
+inline auto require_minimum_device_memory(vk::DeviceSize min_memory)
 {
     return [min_memory](CommVkPhysicalDeviceContext ctx) -> callable::Chainable<CommVkPhysicalDeviceContext>
     {
@@ -443,62 +437,44 @@ inline auto select_physical_device()
     return [](CommVkPhysicalDeviceContext ctx) -> callable::Chainable<CommVkPhysicalDeviceContext>
     {
         // Enumerate physical devices
-        uint32_t device_count = 0;
-        vkEnumeratePhysicalDevices(ctx.vk_instance_, &device_count, nullptr);
+        auto physical_device = ctx.vk_instance_.enumeratePhysicalDevices();
+        // vkEnumeratePhysicalDevices(ctx.vk_instance_, &device_count, nullptr);
 
-        if (device_count == 0)
+        if (physical_device.empty())
         {
             return callable::Chainable<CommVkPhysicalDeviceContext>(
                 callable::error<CommVkPhysicalDeviceContext>("No physical devices found"));
         }
 
-        std::vector<VkPhysicalDevice> devices(device_count);
-        vkEnumeratePhysicalDevices(ctx.vk_instance_, &device_count, devices.data());
+        std::vector<vk::PhysicalDevice> devices(physical_device.size());
+        std::ranges::copy(physical_device, devices.begin());
 
         // Create a scoring function for devices
         auto score_device =
-            [&ctx](VkPhysicalDevice device) -> std::optional<std::pair<int, CommVkPhysicalDeviceContext>>
+            [&ctx](vk::PhysicalDevice device) -> std::optional<std::pair<int, CommVkPhysicalDeviceContext>>
         {
-            VkPhysicalDeviceProperties properties;
-            VkPhysicalDeviceFeatures features;
-            VkPhysicalDeviceMemoryProperties memory_props;
-
-            vkGetPhysicalDeviceProperties(device, &properties);
-            vkGetPhysicalDeviceFeatures(device, &features);
-            vkGetPhysicalDeviceMemoryProperties(device, &memory_props);
+            vk::PhysicalDeviceProperties properties = device.getProperties();
+            vk::PhysicalDeviceFeatures features = device.getFeatures();
+            vk::PhysicalDeviceMemoryProperties memory_props = device.getMemoryProperties();
 
             // Get queue family properties
-            uint32_t queue_family_count = 0;
-            vkGetPhysicalDeviceQueueFamilyProperties(device, &queue_family_count, nullptr);
-            std::vector<VkQueueFamilyProperties> queue_families(queue_family_count);
-            vkGetPhysicalDeviceQueueFamilyProperties(device, &queue_family_count, queue_families.data());
+            std::vector<vk::QueueFamilyProperties> queue_families = device.getQueueFamilyProperties();
 
             // Get available extensions
-            uint32_t extension_count = 0;
-            vkEnumerateDeviceExtensionProperties(device, nullptr, &extension_count, nullptr);
-            std::vector<VkExtensionProperties> extensions(extension_count);
-            vkEnumerateDeviceExtensionProperties(device, nullptr, &extension_count, extensions.data());
+            std::vector<vk::ExtensionProperties> extensions = device.enumerateDeviceExtensionProperties();
 
             // Get Vulkan 1.1, 1.2, 1.3 features if API version supports them
-            VkPhysicalDeviceVulkan11Features features_11{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES};
-            VkPhysicalDeviceVulkan12Features features_12{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES};
-            VkPhysicalDeviceVulkan13Features features_13{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES};
-
-            // Chain features structures
-            features_13.pNext = nullptr;
-            features_12.pNext = &features_13;
-            features_11.pNext = &features_12;
-
-            VkPhysicalDeviceFeatures2 features2{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
-            features2.pNext = &features_11;
-
-            // Only query extended features if API version supports them
-            if (properties.apiVersion >= VK_API_VERSION_1_1)
-            {
-                vkGetPhysicalDeviceFeatures2(device, &features2);
-            }
+            vk::PhysicalDeviceVulkan11Features features_11;
+            vk::PhysicalDeviceVulkan12Features features_12;
+            vk::PhysicalDeviceVulkan13Features features_13;
+            vk::PhysicalDeviceFeatures2 features2;
+            features2.setPNext(&features_11);
+            features2.setPNext(&features_12);
+            features2.setPNext(&features_13);
+            device.getFeatures2(&features2);
 
             // Check basic requirements
+
             auto meets_api_version = [&]()
             {
                 return !ctx.selection_criteria_.minimum_api_version_.has_value() ||
@@ -513,8 +489,7 @@ inline auto select_physical_device()
                                                return std::ranges::any_of(extensions,
                                                                           [required_ext](const auto& available_ext) {
                                                                               return std::string_view(required_ext) ==
-                                                                                     std::string_view(
-                                                                                         available_ext.extensionName);
+                                                                                     std::string_view(available_ext.extensionName);
                                                                           });
                                            });
             };
@@ -540,10 +515,8 @@ inline auto select_physical_device()
                                 if (queue_req.require_present_support_ &&
                                     ctx.selection_criteria_.surface_ != VK_NULL_HANDLE)
                                 {
-                                    VkBool32 present_support = false;
-                                    vkGetPhysicalDeviceSurfaceSupportKHR(
-                                        device, idx, ctx.selection_criteria_.surface_, &present_support);
-                                    return present_support == VK_TRUE;
+                                    auto result = device.getSurfaceSupportKHR(idx, ctx.selection_criteria_.surface_);
+                                    return result == vk::True;
                                 }
                                 return true;
                             });
@@ -572,79 +545,75 @@ inline auto select_physical_device()
                 };
 
                 // Check Vulkan 1.1 features
-                auto check_features_1_1 = [](const VkPhysicalDeviceVulkan11Features& required, const VkPhysicalDeviceVulkan11Features& available) -> bool
+                #define CHECK_FEATURE(feature) if (required.feature == VK_TRUE && available.feature != VK_TRUE) return false;
+                auto check_features_1_1 = [](const vk::PhysicalDeviceVulkan11Features& required, const vk::PhysicalDeviceVulkan11Features& available) -> bool
                 {
-                    #define CHECK_FEATURE_11(feature) if (required.feature == VK_TRUE && available.feature != VK_TRUE) return false;
+                    CHECK_FEATURE(storageBuffer16BitAccess)
+                    CHECK_FEATURE(uniformAndStorageBuffer16BitAccess)
+                    CHECK_FEATURE(storagePushConstant16)
+                    CHECK_FEATURE(storageInputOutput16)
+                    CHECK_FEATURE(multiview)
+                    CHECK_FEATURE(multiviewGeometryShader)
+                    CHECK_FEATURE(multiviewTessellationShader)
+                    CHECK_FEATURE(variablePointersStorageBuffer)
+                    CHECK_FEATURE(variablePointers)
+                    CHECK_FEATURE(protectedMemory)
+                    CHECK_FEATURE(samplerYcbcrConversion)
+                    CHECK_FEATURE(shaderDrawParameters)
                     
-                    CHECK_FEATURE_11(storageBuffer16BitAccess)
-                    CHECK_FEATURE_11(uniformAndStorageBuffer16BitAccess)
-                    CHECK_FEATURE_11(storagePushConstant16)
-                    CHECK_FEATURE_11(storageInputOutput16)
-                    CHECK_FEATURE_11(multiview)
-                    CHECK_FEATURE_11(multiviewGeometryShader)
-                    CHECK_FEATURE_11(multiviewTessellationShader)
-                    CHECK_FEATURE_11(variablePointersStorageBuffer)
-                    CHECK_FEATURE_11(variablePointers)
-                    CHECK_FEATURE_11(protectedMemory)
-                    CHECK_FEATURE_11(samplerYcbcrConversion)
-                    CHECK_FEATURE_11(shaderDrawParameters)
-                    
-                    #undef CHECK_FEATURE_11
                     return true;
                 };
 
                 // Check Vulkan 1.2 features
                 auto check_features_1_2 = [](const VkPhysicalDeviceVulkan12Features& required, const VkPhysicalDeviceVulkan12Features& available) -> bool
                 {
-                    #define CHECK_FEATURE_12(feature) if (required.feature == VK_TRUE && available.feature != VK_TRUE) return false;
-                    
-                    CHECK_FEATURE_12(samplerMirrorClampToEdge)
-                    CHECK_FEATURE_12(drawIndirectCount)
-                    CHECK_FEATURE_12(storageBuffer8BitAccess)
-                    CHECK_FEATURE_12(uniformAndStorageBuffer8BitAccess)
-                    CHECK_FEATURE_12(storagePushConstant8)
-                    CHECK_FEATURE_12(shaderBufferInt64Atomics)
-                    CHECK_FEATURE_12(shaderSharedInt64Atomics)
-                    CHECK_FEATURE_12(shaderFloat16)
-                    CHECK_FEATURE_12(shaderInt8)
-                    CHECK_FEATURE_12(descriptorIndexing)
-                    CHECK_FEATURE_12(shaderInputAttachmentArrayDynamicIndexing)
-                    CHECK_FEATURE_12(shaderUniformTexelBufferArrayDynamicIndexing)
-                    CHECK_FEATURE_12(shaderStorageTexelBufferArrayDynamicIndexing)
-                    CHECK_FEATURE_12(shaderUniformBufferArrayNonUniformIndexing)
-                    CHECK_FEATURE_12(shaderSampledImageArrayNonUniformIndexing)
-                    CHECK_FEATURE_12(shaderStorageBufferArrayNonUniformIndexing)
-                    CHECK_FEATURE_12(shaderStorageImageArrayNonUniformIndexing)
-                    CHECK_FEATURE_12(shaderInputAttachmentArrayNonUniformIndexing)
-                    CHECK_FEATURE_12(shaderUniformTexelBufferArrayNonUniformIndexing)
-                    CHECK_FEATURE_12(shaderStorageTexelBufferArrayNonUniformIndexing)
-                    CHECK_FEATURE_12(descriptorBindingUniformBufferUpdateAfterBind)
-                    CHECK_FEATURE_12(descriptorBindingSampledImageUpdateAfterBind)
-                    CHECK_FEATURE_12(descriptorBindingStorageImageUpdateAfterBind)
-                    CHECK_FEATURE_12(descriptorBindingStorageBufferUpdateAfterBind)
-                    CHECK_FEATURE_12(descriptorBindingUniformTexelBufferUpdateAfterBind)
-                    CHECK_FEATURE_12(descriptorBindingStorageTexelBufferUpdateAfterBind)
-                    CHECK_FEATURE_12(descriptorBindingUpdateUnusedWhilePending)
-                    CHECK_FEATURE_12(descriptorBindingPartiallyBound)
-                    CHECK_FEATURE_12(descriptorBindingVariableDescriptorCount)
-                    CHECK_FEATURE_12(runtimeDescriptorArray)
-                    CHECK_FEATURE_12(samplerFilterMinmax)
-                    CHECK_FEATURE_12(scalarBlockLayout)
-                    CHECK_FEATURE_12(imagelessFramebuffer)
-                    CHECK_FEATURE_12(uniformBufferStandardLayout)
-                    CHECK_FEATURE_12(shaderSubgroupExtendedTypes)
-                    CHECK_FEATURE_12(separateDepthStencilLayouts)
-                    CHECK_FEATURE_12(hostQueryReset)
-                    CHECK_FEATURE_12(timelineSemaphore)
-                    CHECK_FEATURE_12(bufferDeviceAddress)
-                    CHECK_FEATURE_12(bufferDeviceAddressCaptureReplay)
-                    CHECK_FEATURE_12(bufferDeviceAddressMultiDevice)
-                    CHECK_FEATURE_12(vulkanMemoryModel)
-                    CHECK_FEATURE_12(vulkanMemoryModelDeviceScope)
-                    CHECK_FEATURE_12(vulkanMemoryModelAvailabilityVisibilityChains)
-                    CHECK_FEATURE_12(shaderOutputViewportIndex)
-                    CHECK_FEATURE_12(shaderOutputLayer)
-                    CHECK_FEATURE_12(subgroupBroadcastDynamicId)
+                    CHECK_FEATURE(samplerMirrorClampToEdge)
+                    CHECK_FEATURE(drawIndirectCount)
+                    CHECK_FEATURE(storageBuffer8BitAccess)
+                    CHECK_FEATURE(uniformAndStorageBuffer8BitAccess)
+                    CHECK_FEATURE(storagePushConstant8)
+                    CHECK_FEATURE(shaderBufferInt64Atomics)
+                    CHECK_FEATURE(shaderSharedInt64Atomics)
+                    CHECK_FEATURE(shaderFloat16)
+                    CHECK_FEATURE(shaderInt8)
+                    CHECK_FEATURE(descriptorIndexing)
+                    CHECK_FEATURE(shaderInputAttachmentArrayDynamicIndexing)
+                    CHECK_FEATURE(shaderUniformTexelBufferArrayDynamicIndexing)
+                    CHECK_FEATURE(shaderStorageTexelBufferArrayDynamicIndexing)
+                    CHECK_FEATURE(shaderUniformBufferArrayNonUniformIndexing)
+                    CHECK_FEATURE(shaderSampledImageArrayNonUniformIndexing)
+                    CHECK_FEATURE(shaderStorageBufferArrayNonUniformIndexing)
+                    CHECK_FEATURE(shaderStorageImageArrayNonUniformIndexing)
+                    CHECK_FEATURE(shaderInputAttachmentArrayNonUniformIndexing)
+                    CHECK_FEATURE(shaderUniformTexelBufferArrayNonUniformIndexing)
+                    CHECK_FEATURE(shaderStorageTexelBufferArrayNonUniformIndexing)
+                    CHECK_FEATURE(descriptorBindingUniformBufferUpdateAfterBind)
+                    CHECK_FEATURE(descriptorBindingSampledImageUpdateAfterBind)
+                    CHECK_FEATURE(descriptorBindingStorageImageUpdateAfterBind)
+                    CHECK_FEATURE(descriptorBindingStorageBufferUpdateAfterBind)
+                    CHECK_FEATURE(descriptorBindingUniformTexelBufferUpdateAfterBind)
+                    CHECK_FEATURE(descriptorBindingStorageTexelBufferUpdateAfterBind)
+                    CHECK_FEATURE(descriptorBindingUpdateUnusedWhilePending)
+                    CHECK_FEATURE(descriptorBindingPartiallyBound)
+                    CHECK_FEATURE(descriptorBindingVariableDescriptorCount)
+                    CHECK_FEATURE(runtimeDescriptorArray)
+                    CHECK_FEATURE(samplerFilterMinmax)
+                    CHECK_FEATURE(scalarBlockLayout)
+                    CHECK_FEATURE(imagelessFramebuffer)
+                    CHECK_FEATURE(uniformBufferStandardLayout)
+                    CHECK_FEATURE(shaderSubgroupExtendedTypes)
+                    CHECK_FEATURE(separateDepthStencilLayouts)
+                    CHECK_FEATURE(hostQueryReset)
+                    CHECK_FEATURE(timelineSemaphore)
+                    CHECK_FEATURE(bufferDeviceAddress)
+                    CHECK_FEATURE(bufferDeviceAddressCaptureReplay)
+                    CHECK_FEATURE(bufferDeviceAddressMultiDevice)
+                    CHECK_FEATURE(vulkanMemoryModel)
+                    CHECK_FEATURE(vulkanMemoryModelDeviceScope)
+                    CHECK_FEATURE(vulkanMemoryModelAvailabilityVisibilityChains)
+                    CHECK_FEATURE(shaderOutputViewportIndex)
+                    CHECK_FEATURE(shaderOutputLayer)
+                    CHECK_FEATURE(subgroupBroadcastDynamicId)
                     
                     #undef CHECK_FEATURE_12
                     return true;
@@ -653,23 +622,21 @@ inline auto select_physical_device()
                 // Check Vulkan 1.3 features
                 auto check_features_1_3 = [](const VkPhysicalDeviceVulkan13Features& required, const VkPhysicalDeviceVulkan13Features& available) -> bool
                 {
-                    #define CHECK_FEATURE_13(feature) if (required.feature == VK_TRUE && available.feature != VK_TRUE) return false;
-                    
-                    CHECK_FEATURE_13(robustImageAccess)
-                    CHECK_FEATURE_13(inlineUniformBlock)
-                    CHECK_FEATURE_13(descriptorBindingInlineUniformBlockUpdateAfterBind)
-                    CHECK_FEATURE_13(pipelineCreationCacheControl)
-                    CHECK_FEATURE_13(privateData)
-                    CHECK_FEATURE_13(shaderDemoteToHelperInvocation)
-                    CHECK_FEATURE_13(shaderTerminateInvocation)
-                    CHECK_FEATURE_13(subgroupSizeControl)
-                    CHECK_FEATURE_13(computeFullSubgroups)
-                    CHECK_FEATURE_13(synchronization2)
-                    CHECK_FEATURE_13(textureCompressionASTC_HDR)
-                    CHECK_FEATURE_13(shaderZeroInitializeWorkgroupMemory)
-                    CHECK_FEATURE_13(dynamicRendering)
-                    CHECK_FEATURE_13(shaderIntegerDotProduct)
-                    CHECK_FEATURE_13(maintenance4)
+                    CHECK_FEATURE(robustImageAccess)
+                    CHECK_FEATURE(inlineUniformBlock)
+                    CHECK_FEATURE(descriptorBindingInlineUniformBlockUpdateAfterBind)
+                    CHECK_FEATURE(pipelineCreationCacheControl)
+                    CHECK_FEATURE(privateData)
+                    CHECK_FEATURE(shaderDemoteToHelperInvocation)
+                    CHECK_FEATURE(shaderTerminateInvocation)
+                    CHECK_FEATURE(subgroupSizeControl)
+                    CHECK_FEATURE(computeFullSubgroups)
+                    CHECK_FEATURE(synchronization2)
+                    CHECK_FEATURE(textureCompressionASTC_HDR)
+                    CHECK_FEATURE(shaderZeroInitializeWorkgroupMemory)
+                    CHECK_FEATURE(dynamicRendering)
+                    CHECK_FEATURE(shaderIntegerDotProduct)
+                    CHECK_FEATURE(maintenance4)
                     
                     #undef CHECK_FEATURE_13
                     return true;
@@ -719,16 +686,16 @@ inline auto select_physical_device()
 
             // Device type score
             if (ctx.selection_criteria_.prefer_discrete_gpu_ &&
-                properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
+                properties.deviceType == vk::PhysicalDeviceType::eDiscreteGpu)
             {
                 score += 1000;
             }
-            else if (properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU)
+            else if (properties.deviceType == vk::PhysicalDeviceType::eIntegratedGpu)
             {
                 score += 500;
             }
 
-            // Memory score using ranges
+            // Memory score
             auto device_memory_heaps =
                 std::views::iota(0U, memory_props.memoryHeapCount) |
                 std::views::transform(
@@ -738,15 +705,15 @@ inline auto select_physical_device()
                         assert(idx < VK_MAX_MEMORY_HEAPS && "Memory heap index out of bounds");
                         return memory_props.memoryHeaps[idx];
                     }) |
-                std::views::filter([](const auto& heap) { return heap.flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT; });
+                std::views::filter([](vk::MemoryHeap heap) { return heap.flags & vk::MemoryHeapFlagBits::eDeviceLocal; });
 
-            VkDeviceSize total_memory =
+            vk::DeviceSize total_memory =
                 std::accumulate(device_memory_heaps.begin(),
                                 device_memory_heaps.end(),
-                                VkDeviceSize{0},
-                                [](VkDeviceSize sum, const auto& heap) { return sum + heap.size; });
+                                vk::DeviceSize{0},
+                                [](vk::DeviceSize sum, const auto& heap) { return sum + heap.size; });
 
-            score += static_cast<int>(total_memory / (static_cast<VkDeviceSize>(1024 * 1024)));
+            score += static_cast<int>(total_memory / (static_cast<vk::DeviceSize>(1024 * 1024)));
 
             // Create context copy with updated data
             CommVkPhysicalDeviceContext result_ctx = ctx;
@@ -794,21 +761,21 @@ inline auto select_physical_device()
 struct CommVkLogicalDeviceContext
 {
     // parent physical device context - now includes the validated features
-    VkPhysicalDevice vk_physical_device_ = VK_NULL_HANDLE;
-    VkPhysicalDeviceProperties device_properties_{};
-    VkPhysicalDeviceFeatures device_features_{};
-    std::vector<VkQueueFamilyProperties> queue_family_properties_;
+    vk::PhysicalDevice vk_physical_device_ = VK_NULL_HANDLE;
+    vk::PhysicalDeviceProperties device_properties_{};
+    vk::PhysicalDeviceFeatures device_features_{};
+    std::vector<vk::QueueFamilyProperties> queue_family_properties_;
 
     // features from physical device selection (already validated)
-    VkPhysicalDeviceFeatures validated_features_{};
-    VkPhysicalDeviceVulkan11Features validated_features_11_{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES};
-    VkPhysicalDeviceVulkan12Features validated_features_12_{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES};
-    VkPhysicalDeviceVulkan13Features validated_features_13_{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES};
+    vk::PhysicalDeviceFeatures validated_features_{};
+    vk::PhysicalDeviceVulkan11Features validated_features_11_{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES};
+    vk::PhysicalDeviceVulkan12Features validated_features_12_{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES};
+    vk::PhysicalDeviceVulkan13Features validated_features_13_{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES};
 
     // logical device creation info
     struct DeviceInfo
     {
-        std::vector<VkDeviceQueueCreateInfo> queue_create_infos_;
+        std::vector<vk::DeviceQueueCreateInfo> queue_create_infos_;
         std::vector<const char*> required_extensions_;
         void* p_next_ = nullptr;
     } device_info_;
@@ -819,15 +786,15 @@ struct CommVkLogicalDeviceContext
         uint32_t queue_family_index_;
         uint32_t queue_count_;
         std::vector<float> queue_priorities_;
-        VkQueueFlags queue_flags_;
+        vk::QueueFlags queue_flags_;
         std::string queue_name_; // for identification
     };
     std::vector<QueueInfo> queue_infos_;
 
     // vulkan natives
-    VkDevice vk_logical_device_ = VK_NULL_HANDLE;
-    std::unordered_map<std::string, VkQueue> named_queues_;
-    std::unordered_map<uint32_t, std::vector<VkQueue>> family_queues_;
+    vk::Device vk_logical_device_ = VK_NULL_HANDLE;
+    std::unordered_map<std::string, vk::Queue> named_queues_;
+    std::unordered_map<uint32_t, std::vector<vk::Queue>> family_queues_;
 };
 
 namespace logicaldevice
@@ -910,7 +877,7 @@ inline auto add_queue(const std::string& queue_name,
 
 /// @brief Adds a graphics queue automatically finding suitable family
 inline auto add_graphics_queue(const std::string& queue_name = "graphics",
-                               VkSurfaceKHR surface          = VK_NULL_HANDLE,
+                               vk::SurfaceKHR surface        = VK_NULL_HANDLE,
                                uint32_t queue_count          = 1)
 {
     return [queue_name, surface, queue_count](
@@ -927,15 +894,14 @@ inline auto add_graphics_queue(const std::string& queue_name = "graphics",
                     const auto& family = ctx.queue_family_properties_[idx];
 
                     // Check for graphics support
-                    if (!(family.queueFlags & VK_QUEUE_GRAPHICS_BIT))
+                    if (!(family.queueFlags & vk::QueueFlagBits::eGraphics))
                         return false;
 
                     // If surface provided, check for present support
                     if (surface != VK_NULL_HANDLE)
                     {
-                        VkBool32 present_support = false;
-                        vkGetPhysicalDeviceSurfaceSupportKHR(ctx.vk_physical_device_, idx, surface, &present_support);
-                        return present_support == VK_TRUE;
+                        vk::Bool32 present_support = ctx.vk_physical_device_.getSurfaceSupportKHR(idx, surface);
+                        return present_support == vk::True;
                     }
 
                     return true;
@@ -964,17 +930,15 @@ inline auto add_compute_queue(const std::string& queue_name = "compute", uint32_
 {
     return [queue_name, queue_count](CommVkLogicalDeviceContext ctx) -> callable::Chainable<CommVkLogicalDeviceContext>
     {
-        // Use ranges::find_if find dedicated compute queue family first
+        // find dedicated compute queue family first
         auto dedicated_compute =
             std::ranges::find_if(std::views::iota(0U, static_cast<uint32_t>(ctx.queue_family_properties_.size())),
                                  [&](uint32_t idx)
                                  {
                                      const auto& family = ctx.queue_family_properties_[idx];
-                                     return (family.queueFlags & VK_QUEUE_COMPUTE_BIT) &&
-                                            !(family.queueFlags & (VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_TRANSFER_BIT));
+                                     return (family.queueFlags & vk::QueueFlagBits::eCompute) &&
+                                            !(family.queueFlags & (vk::QueueFlagBits::eGraphics | vk::QueueFlagBits::eTransfer));
                                  });
-
-        // If any dedicated compute queue family found, use it
         if (dedicated_compute !=
             std::ranges::end(std::views::iota(0U, static_cast<uint32_t>(ctx.queue_family_properties_.size()))))
         {
@@ -987,10 +951,9 @@ inline auto add_compute_queue(const std::string& queue_name = "compute", uint32_
             [&](uint32_t idx)
             {
                 const auto& family = ctx.queue_family_properties_[idx];
-                return (family.queueFlags & VK_QUEUE_COMPUTE_BIT) && (family.queueFlags & VK_QUEUE_GRAPHICS_BIT);
+                return (family.queueFlags & vk::QueueFlagBits::eCompute) && 
+                       (family.queueFlags & vk::QueueFlagBits::eGraphics);
             });
-
-        // If any compute-capable graphics queue family found, use it
         if (compute_graphics !=
             std::ranges::end(std::views::iota(0U, static_cast<uint32_t>(ctx.queue_family_properties_.size()))))
         {
@@ -1010,17 +973,15 @@ inline auto add_transfer_queue(const std::string& queue_name = "transfer", uint3
 {
     return [queue_name, queue_count](CommVkLogicalDeviceContext ctx) -> callable::Chainable<CommVkLogicalDeviceContext>
     {
-        // Use ranges::find_if find dedicated compute queue family first
+        // find dedicated compute queue family first
         auto dedicated_transfer =
             std::ranges::find_if(std::views::iota(0U, static_cast<uint32_t>(ctx.queue_family_properties_.size())),
                                  [&](uint32_t idx)
                                  {
                                      const auto& family = ctx.queue_family_properties_[idx];
-                                     return (family.queueFlags & VK_QUEUE_TRANSFER_BIT) &&
-                                            !(family.queueFlags & (VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT));
+                                     return (family.queueFlags & vk::QueueFlagBits::eTransfer) &&
+                                            !(family.queueFlags & (vk::QueueFlagBits::eGraphics | vk::QueueFlagBits::eCompute));
                                  });
-
-        // If any dedicated transfer queue family found, use it
         if (dedicated_transfer !=
             std::ranges::end(std::views::iota(0U, static_cast<uint32_t>(ctx.queue_family_properties_.size()))))
         {
@@ -1033,10 +994,9 @@ inline auto add_transfer_queue(const std::string& queue_name = "transfer", uint3
             [&](uint32_t idx)
             {
                 const auto& family = ctx.queue_family_properties_[idx];
-                return (family.queueFlags & VK_QUEUE_TRANSFER_BIT) && (family.queueFlags & VK_QUEUE_GRAPHICS_BIT);
+                return (family.queueFlags & vk::QueueFlagBits::eTransfer) && 
+                       (family.queueFlags & vk::QueueFlagBits::eGraphics);
             });
-
-        // If any transfer-capable graphics queue family found, use it
         if (transfer_graphics !=
             std::ranges::end(std::views::iota(0U, static_cast<uint32_t>(ctx.queue_family_properties_.size()))))
         {
@@ -1081,20 +1041,19 @@ inline auto create_logical_device()
     return [](CommVkLogicalDeviceContext ctx) -> callable::Chainable<CommVkLogicalDeviceContext>
     {
         // Consolidate queue create infos by family
-        std::unordered_map<uint32_t, VkDeviceQueueCreateInfo> family_queue_infos;
+        std::unordered_map<uint32_t, vk::DeviceQueueCreateInfo> family_queue_infos;
         std::unordered_map<uint32_t, std::vector<float>> family_priorities;
 
         for (const auto& queue_info : ctx.queue_infos_)
         {
             uint32_t family_index = queue_info.queue_family_index_;
 
-            if (family_queue_infos.find(family_index) == family_queue_infos.end())
+            if (!family_queue_infos.contains(family_index))
             {
                 // First queue for this family
-                VkDeviceQueueCreateInfo queue_create_info{};
-                queue_create_info.sType            = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-                queue_create_info.queueFamilyIndex = family_index;
-                queue_create_info.queueCount       = queue_info.queue_count_;
+                vk::DeviceQueueCreateInfo queue_create_info;
+                queue_create_info.setQueueFamilyIndex(family_index);
+                queue_create_info.setQueueCount(queue_info.queue_count_);
 
                 family_queue_infos[family_index] = queue_create_info;
                 family_priorities[family_index]  = queue_info.queue_priorities_;
@@ -1102,10 +1061,10 @@ inline auto create_logical_device()
             else
             {
                 // Additional queues for existing family
-                auto& existing_info       = family_queue_infos[family_index];
+                auto& existing_info = family_queue_infos[family_index];
                 auto& existing_priorities = family_priorities[family_index];
 
-                existing_info.queueCount += queue_info.queue_count_;
+                existing_info.setQueueCount(existing_info.queueCount + queue_info.queue_count_);
                 existing_priorities.insert(existing_priorities.end(),
                                            queue_info.queue_priorities_.begin(),
                                            queue_info.queue_priorities_.end());
@@ -1119,7 +1078,7 @@ inline auto create_logical_device()
         }
 
         // Convert to vector for device creation
-        std::vector<VkDeviceQueueCreateInfo> queue_create_infos;
+        std::vector<vk::DeviceQueueCreateInfo> queue_create_infos;
         queue_create_infos.reserve(family_queue_infos.size());
         for (const auto& [family_index, queue_info] : family_queue_infos)
         {
@@ -1128,40 +1087,37 @@ inline auto create_logical_device()
 
         // Setup feature chain using validated features from physical device
         void* feature_chain = nullptr;
-        if (ctx.validated_features_13_.sType != 0)
+        if (ctx.device_properties_.apiVersion >= VK_API_VERSION_1_3)
         {
-            ctx.validated_features_13_.pNext = feature_chain;
-            feature_chain                    = &ctx.validated_features_13_;
+            // Chain: features_13 -> features_12 -> features_11 -> nullptr
+            ctx.validated_features_13_.pNext = nullptr;
+            ctx.validated_features_12_.pNext = &ctx.validated_features_13_;
+            ctx.validated_features_11_.pNext = &ctx.validated_features_12_;
+            feature_chain = &ctx.validated_features_11_;
         }
-        if (ctx.validated_features_12_.sType != 0)
+        else if (ctx.device_properties_.apiVersion >= VK_API_VERSION_1_2)
         {
-            ctx.validated_features_12_.pNext = feature_chain;
-            feature_chain                    = &ctx.validated_features_12_;
+            // Chain: features_12 -> features_11 -> nullptr
+            ctx.validated_features_12_.pNext = nullptr;
+            ctx.validated_features_11_.pNext = &ctx.validated_features_12_;
+            feature_chain = &ctx.validated_features_11_;
         }
-        if (ctx.validated_features_11_.sType != 0)
+        else if (ctx.device_properties_.apiVersion >= VK_API_VERSION_1_1)
         {
-            ctx.validated_features_11_.pNext = feature_chain;
-            feature_chain                    = &ctx.validated_features_11_;
+            // Chain: features_11 -> nullptr
+            ctx.validated_features_11_.pNext = nullptr;
+            feature_chain = &ctx.validated_features_11_;
         }
 
         // Create device
-        VkDeviceCreateInfo device_create_info{};
-        device_create_info.sType                 = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-        device_create_info.pNext                 = feature_chain;
-        device_create_info.queueCreateInfoCount  = static_cast<uint32_t>(queue_create_infos.size());
-        device_create_info.pQueueCreateInfos     = queue_create_infos.data();
-        device_create_info.enabledExtensionCount = static_cast<uint32_t>(ctx.device_info_.required_extensions_.size());
-        device_create_info.ppEnabledExtensionNames =
-            ctx.device_info_.required_extensions_.empty() ? nullptr : ctx.device_info_.required_extensions_.data();
-        device_create_info.pEnabledFeatures = &ctx.validated_features_; // Use validated features
-
-        VkResult result =
-            vkCreateDevice(ctx.vk_physical_device_, &device_create_info, nullptr, &ctx.vk_logical_device_);
-        if (result != VK_SUCCESS)
-        {
-            return callable::Chainable<CommVkLogicalDeviceContext>(callable::error<CommVkLogicalDeviceContext>(
-                "Failed to create logical device. Error: " + std::to_string(result)));
-        }
+        vk::DeviceCreateInfo device_create_info;
+        device_create_info
+            .setQueueCreateInfos(queue_create_infos)
+            .setEnabledExtensionCount(static_cast<uint32_t>(ctx.device_info_.required_extensions_.size()))
+            .setPpEnabledExtensionNames(ctx.device_info_.required_extensions_.empty() ? nullptr : ctx.device_info_.required_extensions_.data())
+            .setPEnabledFeatures(&ctx.validated_features_) // Use validated features
+            .setPNext(feature_chain); // Add Vulkan 1.1 features
+        ctx.vk_logical_device_ = ctx.vk_physical_device_.createDevice(device_create_info, nullptr);
 
         // Retrieve queues
         std::unordered_map<uint32_t, uint32_t> family_queue_counters;
@@ -1172,8 +1128,7 @@ inline auto create_logical_device()
 
             for (uint32_t i = 0; i < queue_info.queue_count_; ++i)
             {
-                VkQueue queue;
-                vkGetDeviceQueue(ctx.vk_logical_device_, family_index, counter, &queue);
+                vk::Queue queue = ctx.vk_logical_device_.getQueue(family_index, counter);
 
                 // Store in named queues (use index suffix for multiple queues)
                 std::string queue_name = queue_info.queue_name_;
@@ -1184,7 +1139,7 @@ inline auto create_logical_device()
                 ctx.named_queues_[queue_name] = queue;
 
                 // Store in family queues
-                ctx.family_queues_[family_index].push_back(queue);
+                ctx.family_queues_[family_index].emplace_back(queue);
 
                 ++counter;
             }
@@ -1202,7 +1157,7 @@ inline VkQueue get_queue(const CommVkLogicalDeviceContext& ctx, const std::strin
 }
 
 /// @brief Helper function to get queue family index by queue flags (DEPRECATED - use find_queue_family_by_name instead)
-inline std::optional<uint32_t> find_queue_family(const CommVkLogicalDeviceContext& ctx, VkQueueFlags queue_flags)
+inline std::optional<uint32_t> find_queue_family(const CommVkLogicalDeviceContext& ctx, vk::QueueFlags queue_flags)
 {
     for (uint32_t i = 0; i < ctx.queue_family_properties_.size(); i++)
     {
@@ -1251,7 +1206,7 @@ inline std::optional<uint32_t> find_queue_family_by_name(const CommVkLogicalDevi
 /// @param prefer_dedicated Whether to prefer dedicated queues (default true)
 /// @return Queue family index if found, std::nullopt otherwise
 inline std::optional<uint32_t> find_optimal_queue_family(const CommVkLogicalDeviceContext& ctx, 
-                                                         VkQueueFlags queue_flags, 
+                                                         vk::QueueFlags queue_flags, 
                                                          bool prefer_dedicated = true)
 {
     std::vector<uint32_t> suitable_families;
@@ -1290,28 +1245,28 @@ inline std::optional<uint32_t> find_optimal_queue_family(const CommVkLogicalDevi
     // Try to find dedicated queue family first
     for (uint32_t family_idx : suitable_families)
     {
-        VkQueueFlags family_flags = ctx.queue_family_properties_[family_idx].queueFlags;
-        
+        vk::QueueFlags family_flags = ctx.queue_family_properties_[family_idx].queueFlags;
+
         // For transfer queues, prefer families that only have transfer (and possibly sparse binding)
-        if (queue_flags == VK_QUEUE_TRANSFER_BIT)
+        if (queue_flags == vk::QueueFlagBits::eTransfer)
         {
-            VkQueueFlags non_transfer_flags = family_flags & ~(VK_QUEUE_TRANSFER_BIT | VK_QUEUE_SPARSE_BINDING_BIT);
-            if (non_transfer_flags == 0)
+            vk::QueueFlags non_transfer_flags = family_flags & ~(vk::QueueFlagBits::eTransfer | vk::QueueFlagBits::eSparseBinding);
+            if (non_transfer_flags == vk::QueueFlags())
             {
                 return family_idx; // Found dedicated transfer queue
             }
         }
         // For compute queues, prefer families that only have compute (and possibly transfer/sparse)
-        else if (queue_flags == VK_QUEUE_COMPUTE_BIT)
+        else if (queue_flags == vk::QueueFlagBits::eCompute)
         {
-            VkQueueFlags non_compute_flags = family_flags & ~(VK_QUEUE_COMPUTE_BIT | VK_QUEUE_TRANSFER_BIT | VK_QUEUE_SPARSE_BINDING_BIT);
-            if (non_compute_flags == 0)
+            vk::QueueFlags non_compute_flags = family_flags & ~(vk::QueueFlagBits::eCompute | vk::QueueFlagBits::eTransfer | vk::QueueFlagBits::eSparseBinding);
+            if (non_compute_flags == vk::QueueFlags())
             {
                 return family_idx; // Found dedicated compute queue
             }
         }
         // For graphics queues, any graphics queue is fine since graphics usually includes everything
-        else if (queue_flags & VK_QUEUE_GRAPHICS_BIT)
+        else if (queue_flags & vk::QueueFlagBits::eGraphics)
         {
             return family_idx; // Graphics queues are typically shared anyway
         }
@@ -1378,10 +1333,10 @@ inline std::unordered_map<std::string, uint32_t> get_all_queue_families(const Co
 }
 
 /// @brief Helper function to get all queues from a family
-inline std::vector<VkQueue> get_family_queues(const CommVkLogicalDeviceContext& ctx, uint32_t family_index)
+inline std::vector<vk::Queue> get_family_queues(const CommVkLogicalDeviceContext& ctx, uint32_t family_index)
 {
     auto it = ctx.family_queues_.find(family_index);
-    return (it != ctx.family_queues_.end()) ? it->second : std::vector<VkQueue>{};
+    return (it != ctx.family_queues_.end()) ? it->second : std::vector<vk::Queue>{};
 }
 
 } // namespace logicaldevice
