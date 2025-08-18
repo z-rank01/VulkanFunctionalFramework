@@ -1,17 +1,18 @@
 #define VULKAN_HPP_DISPATCH_LOADER_DYNAMIC 1
+#define VULKAN_HPP_NO_CONSTRUCTORS
 
 #include "vulkan_sample.h"
 
-#include <cmath>
-#include <vulkan/vulkan.hpp>
-
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <iostream>
 #include <thread>
+#include <vulkan/vulkan.hpp>
+#include <vulkan/vulkan_enums.hpp>
 
 #include "_callable/callable.h"
-#include "_templates/common.h"
+#include "_templates/common.hpp"
 
 VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE;
 
@@ -57,41 +58,39 @@ void VulkanSample::GetMeshList(const std::vector<gltf::PerMeshData>& mesh_list)
 VulkanSample::~VulkanSample()
 {
     // 等待设备空闲，确保没有正在进行的操作
-    vkDeviceWaitIdle(comm_vk_logical_device_);
+    comm_vk_logical_device_.waitIdle();
 
     // 销毁深度资源
     if (depth_image_view_ != VK_NULL_HANDLE)
     {
-        vkDestroyImageView(comm_vk_logical_device_, depth_image_view_, nullptr);
+        comm_vk_logical_device_.destroyImageView(depth_image_view_);
         depth_image_view_ = VK_NULL_HANDLE;
     }
 
     if (depth_image_ != VK_NULL_HANDLE)
     {
-        vkDestroyImage(comm_vk_logical_device_, depth_image_, nullptr);
+        comm_vk_logical_device_.destroyImage(depth_image_);
         depth_image_ = VK_NULL_HANDLE;
     }
 
     if (depth_memory_ != VK_NULL_HANDLE)
     {
-        vkFreeMemory(comm_vk_logical_device_, depth_memory_, nullptr);
+        comm_vk_logical_device_.freeMemory(depth_memory_, nullptr);
         depth_memory_ = VK_NULL_HANDLE;
     }
 
     // 销毁描述符相关资源
     if (descriptor_pool_ != VK_NULL_HANDLE)
     {
-        vkDestroyDescriptorPool(comm_vk_logical_device_, descriptor_pool_, nullptr);
+        comm_vk_logical_device_.destroyDescriptorPool(descriptor_pool_);
         descriptor_pool_ = VK_NULL_HANDLE;
     }
 
     if (descriptor_set_layout_ != VK_NULL_HANDLE)
     {
-        vkDestroyDescriptorSetLayout(comm_vk_logical_device_, descriptor_set_layout_, nullptr);
+        comm_vk_logical_device_.destroyDescriptorSetLayout(descriptor_set_layout_);
         descriptor_set_layout_ = VK_NULL_HANDLE;
     }
-
-    
 
     // destroy vma relatives
     if (uniform_buffer_ != VK_NULL_HANDLE)
@@ -99,7 +98,7 @@ VulkanSample::~VulkanSample()
         vmaDestroyBuffer(vma_allocator_, uniform_buffer_, uniform_buffer_allocation_);
         uniform_buffer_ = VK_NULL_HANDLE;
     }
-    if (test_local_buffer_ != VK_NULL_HANDLE) 
+    if (test_local_buffer_ != VK_NULL_HANDLE)
     {
         vmaDestroyBuffer(vma_allocator_, test_local_buffer_, test_local_buffer_allocation_);
         test_local_buffer_ = VK_NULL_HANDLE;
@@ -117,11 +116,11 @@ VulkanSample::~VulkanSample()
 
     // destroy swapchain related resources
 
-    for (auto *image_view : comm_vk_swapchain_context_.swapchain_image_views_)
+    for (auto image_view : comm_vk_swapchain_context_.swapchain_image_views_)
     {
-        vkDestroyImageView(comm_vk_logical_device_, image_view, nullptr);
+        comm_vk_logical_device_.destroyImageView(image_view);
     }
-    vkDestroySwapchainKHR(comm_vk_logical_device_, comm_vk_swapchain_, nullptr);
+    comm_vk_logical_device_.destroySwapchainKHR(comm_vk_swapchain_);
 
     // release unique pointer
 
@@ -134,14 +133,13 @@ VulkanSample::~VulkanSample()
     vk_synchronization_helper_.reset();
 
     // destroy comm test data
-    
+
     vkDestroyDevice(comm_vk_logical_device_, nullptr);
     vkDestroyInstance(comm_vk_instance_, nullptr);
 
     // 重置单例指针
     instance = nullptr;
 }
-
 
 void VulkanSample::initialize_vulkan_hpp()
 {
@@ -240,8 +238,8 @@ void VulkanSample::initialize_vulkan()
 void VulkanSample::initialize_camera()
 {
     // initialize mvp matrices
-    mvp_matrices_ =
-        std::vector<SMvpMatrix>(engine_config_.frame_count, {.model=glm::mat4(1.0F), .view=glm::mat4(1.0F), .projection=glm::mat4(1.0F)});
+    mvp_matrices_ = std::vector<SMvpMatrix>(
+        engine_config_.frame_count, {.model = glm::mat4(1.0F), .view = glm::mat4(1.0F), .projection = glm::mat4(1.0F)});
 
     // initialize camera
     camera_.position          = glm::vec3(0.0F, 0.0F, 10.0F); // 更远的初始距离
@@ -651,10 +649,9 @@ void VulkanSample::generate_frame_structs()
 bool VulkanSample::create_instance()
 {
     auto extensions     = vk_window_helper_->GetWindowExtensions();
-    auto instance_chain = common::instance::create_context() | 
-                          common::instance::set_application_name("My Vulkan App") |
+    auto instance_chain = common::instance::create_context() | common::instance::set_application_name("My Vulkan App") |
                           common::instance::set_engine_name("My Engine") |
-                          common::instance::set_application_version(1, 3, 0) |
+                          common::instance::set_api_version(1, 3, 0) |
                           common::instance::add_validation_layers({"VK_LAYER_KHRONOS_validation"}) |
                           common::instance::add_extensions(extensions) | common::instance::validate_context() |
                           common::instance::create_vk_instance();
@@ -669,6 +666,7 @@ bool VulkanSample::create_instance()
     }
     auto context      = std::get<templates::common::CommVkInstanceContext>(result);
     comm_vk_instance_ = context.vk_instance_;
+    VULKAN_HPP_DEFAULT_DISPATCHER.init(comm_vk_instance_);  // a must for loading all other function pointers!
     std::cout << "Successfully created Vulkan instance." << '\n';
     return true;
 }
@@ -681,14 +679,13 @@ bool VulkanSample::create_surface()
 bool VulkanSample::create_physical_device()
 {
     // vulkan 1.3 features - 用于检查硬件支持
-    VkPhysicalDeviceVulkan13Features features_13{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES};
-    features_13.synchronization2 = VK_TRUE;
+    vk::PhysicalDeviceVulkan13Features features_13{.synchronization2 = vk::True};
 
     auto physical_device_chain = common::physicaldevice::create_physical_device_context(comm_vk_instance_) |
                                  common::physicaldevice::set_surface(vk_window_helper_->GetSurface()) |
                                  common::physicaldevice::require_api_version(1, 3, 0) |
                                  common::physicaldevice::require_features_13(features_13) |
-                                 common::physicaldevice::require_queue(VK_QUEUE_GRAPHICS_BIT, 1, true) |
+                                 common::physicaldevice::require_queue(vk::QueueFlagBits::eGraphics, 1, true) |
                                  common::physicaldevice::prefer_discrete_gpu() |
                                  common::physicaldevice::select_physical_device();
 
@@ -710,7 +707,7 @@ bool VulkanSample::create_physical_device()
 bool VulkanSample::create_logical_device()
 {
     auto device_chain = common::logicaldevice::create_logical_device_context(comm_vk_physical_device_context_) |
-                        common::logicaldevice::require_extensions({VK_KHR_SWAPCHAIN_EXTENSION_NAME}) |
+                        common::logicaldevice::require_extensions({vk::KHRSwapchainExtensionName}) |
                         common::logicaldevice::add_graphics_queue("main_graphics", vk_window_helper_->GetSurface()) |
                         common::logicaldevice::add_transfer_queue("upload") |
                         common::logicaldevice::validate_device_configuration() |
@@ -737,13 +734,11 @@ bool VulkanSample::create_swapchain()
 
     auto swapchain_chain =
         common::swapchain::create_swapchain_context(comm_vk_logical_device_context_, vk_window_helper_->GetSurface()) |
-        common::swapchain::set_surface_format(VK_FORMAT_B8G8R8A8_UNORM, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) |
-        common::swapchain::set_present_mode(VK_PRESENT_MODE_FIFO_KHR) | 
-        common::swapchain::set_image_count(2, 3) |
+        common::swapchain::set_surface_format(vk::Format::eB8G8R8A8Unorm, vk::ColorSpaceKHR::eSrgbNonlinear) |
+        common::swapchain::set_present_mode(vk::PresentModeKHR::eFifo) | common::swapchain::set_image_count(2, 3) |
         common::swapchain::set_desired_extent(static_cast<uint32_t>(engine_config_.window_config.width),
                                               static_cast<uint32_t>(engine_config_.window_config.height)) |
-        common::swapchain::query_surface_support() | 
-        common::swapchain::select_swapchain_settings() |
+        common::swapchain::query_surface_support() | common::swapchain::select_swapchain_settings() |
         common::swapchain::create_swapchain();
 
     auto result = swapchain_chain.evaluate();
@@ -782,7 +777,7 @@ bool VulkanSample::create_command_pool()
     vk_command_buffer_helper_ = std::make_unique<VulkanCommandBufferHelper>();
 
     auto queue_family_index =
-        common::logicaldevice::find_optimal_queue_family(comm_vk_logical_device_context_, VK_QUEUE_GRAPHICS_BIT);
+        common::logicaldevice::find_optimal_queue_family(comm_vk_logical_device_context_, vk::QueueFlagBits::eGraphics);
     if (!queue_family_index.has_value())
     {
         std::cerr << "Failed to find any suitable graphics queue family." << '\n';
@@ -795,12 +790,11 @@ bool VulkanSample::create_uniform_buffers()
 {
     for (int i = 0; i < engine_config_.frame_count; ++i)
     {
-        auto current_mvp_matrix   = mvp_matrices_[i];
-        VkBufferCreateInfo buffer_create_info = {};
-        buffer_create_info.sType              = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-        buffer_create_info.usage              = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-        buffer_create_info.sharingMode        = VK_SHARING_MODE_EXCLUSIVE;
-        buffer_create_info.size               = sizeof(SMvpMatrix);
+        auto current_mvp_matrix = mvp_matrices_[i];
+        vk::BufferCreateInfo buffer_create_info;
+        buffer_create_info.setSize(sizeof(SMvpMatrix))
+            .setUsage(vk::BufferUsageFlagBits::eUniformBuffer)
+            .setSharingMode(vk::SharingMode::eExclusive);
         vra::VraDataDesc data_desc{
             vra::VraDataMemoryPattern::CPU_GPU, vra::VraDataUpdateRate::Frequent, buffer_create_info};
         vra::VraRawData raw_data{.pData_ = &current_mvp_matrix, .size_ = sizeof(SMvpMatrix)};
@@ -822,7 +816,7 @@ bool VulkanSample::create_uniform_buffers()
     return Logger::LogWithVkResult(vmaCreateBuffer(vma_allocator_,
                                                    &uniform_buffer_create_info,
                                                    &allocation_create_info,
-                                                   &uniform_buffer_,
+                                                   reinterpret_cast<VkBuffer*>(&uniform_buffer_),
                                                    &uniform_buffer_allocation_,
                                                    &uniform_buffer_allocation_info_),
                                    "Failed to create uniform buffer",
@@ -831,73 +825,56 @@ bool VulkanSample::create_uniform_buffers()
 
 bool VulkanSample::create_and_write_descriptor_relatives()
 {
-    // create descriptor pool
-    VkDescriptorType dynamic_uniform_buffer_type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+    vk::DescriptorPoolSize pool_size(vk::DescriptorType::eUniformBufferDynamic, 1);
+    vk::DescriptorPoolCreateInfo descriptor_pool_create_info;
+    descriptor_pool_create_info.setPoolSizes(pool_size).setPoolSizeCount(1).setMaxSets(1);
 
-    VkDescriptorPoolSize pool_size{};
-    pool_size.type            = dynamic_uniform_buffer_type;
-    pool_size.descriptorCount = 1;
-
-    VkDescriptorPoolCreateInfo pool_info{};
-    pool_info.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    pool_info.poolSizeCount = 1;
-    pool_info.pPoolSizes    = &pool_size;
-    pool_info.maxSets       = 1;
-
-    if (!Logger::LogWithVkResult(vkCreateDescriptorPool(comm_vk_logical_device_, &pool_info, nullptr, &descriptor_pool_),
-                                 "Failed to create descriptor pool",
-                                 "Succeeded in creating descriptor pool"))
+    descriptor_pool_ = comm_vk_logical_device_.createDescriptorPool(descriptor_pool_create_info, nullptr);
+    if (!descriptor_pool_)
         return false;
 
     // create descriptor set layout
 
-    VkDescriptorSetLayoutBinding layout_binding{};
-    layout_binding.binding         = 0;
-    layout_binding.descriptorType  = dynamic_uniform_buffer_type;
-    layout_binding.descriptorCount = 1;
-    layout_binding.stageFlags      = VK_SHADER_STAGE_VERTEX_BIT;
+    vk::DescriptorSetLayoutBinding layout_binding;
+    layout_binding.setBinding(0)
+        .setDescriptorType(vk::DescriptorType::eUniformBufferDynamic)
+        .setDescriptorCount(1)
+        .setStageFlags(vk::ShaderStageFlagBits::eVertex);
 
-    VkDescriptorSetLayoutCreateInfo layout_info{};
-    layout_info.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    layout_info.bindingCount = 1;
-    layout_info.pBindings    = &layout_binding;
+    vk::DescriptorSetLayoutCreateInfo layout_create_info;
+    layout_create_info.setBindingCount(1).setPBindings(&layout_binding);
 
-    if (!Logger::LogWithVkResult(
-            vkCreateDescriptorSetLayout(comm_vk_logical_device_, &layout_info, nullptr, &descriptor_set_layout_),
-            "Failed to create descriptor set layout",
-            "Succeeded in creating descriptor set layout"))
+    descriptor_set_layout_ = comm_vk_logical_device_.createDescriptorSetLayout(layout_create_info, nullptr);
+    if (!descriptor_set_layout_)
         return false;
 
     // allocate descriptor set
 
-    VkDescriptorSetAllocateInfo alloc_info{};
-    alloc_info.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    alloc_info.descriptorPool     = descriptor_pool_;
-    alloc_info.descriptorSetCount = 1;
-    alloc_info.pSetLayouts        = &descriptor_set_layout_;
+    vk::DescriptorSetAllocateInfo alloc_info;
+    alloc_info.setDescriptorPool(descriptor_pool_).setDescriptorSetCount(1).setPSetLayouts(&descriptor_set_layout_);
 
-    if (!Logger::LogWithVkResult(vkAllocateDescriptorSets(comm_vk_logical_device_, &alloc_info, &descriptor_set_),
-                                 "Failed to allocate descriptor set",
-                                 "Succeeded in allocating descriptor set"))
+    descriptor_sets_ = comm_vk_logical_device_.allocateDescriptorSets(alloc_info);
+    if (descriptor_sets_.empty())
         return false;
 
     // write descriptor set
-    VkDescriptorBufferInfo buffer_info{};
-    buffer_info.buffer = uniform_buffer_;
-    buffer_info.offset = 0;
-    buffer_info.range  = sizeof(SMvpMatrix);
-
-    VkWriteDescriptorSet descriptor_write{};
-    descriptor_write.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    descriptor_write.dstSet          = descriptor_set_;
-    descriptor_write.dstBinding      = 0;
-    descriptor_write.dstArrayElement = 0;
-    descriptor_write.descriptorType  = dynamic_uniform_buffer_type;
-    descriptor_write.descriptorCount = 1;
-    descriptor_write.pBufferInfo     = &buffer_info;
-
-    vkUpdateDescriptorSets(comm_vk_logical_device_, 1, &descriptor_write, 0, nullptr);
-
+    vk::DescriptorBufferInfo descriptor_buffer_info
+    {
+        .buffer = uniform_buffer_,
+        .offset = 0,
+        .range  = VK_WHOLE_SIZE
+    };
+    std::vector<vk::WriteDescriptorSet> write_descriptor_sets(descriptor_sets_.size());
+    for (size_t i = 0; i < descriptor_sets_.size(); ++i)
+    {
+        write_descriptor_sets[i] = {.dstSet          = descriptor_sets_[i],
+                                    .dstBinding      = 0,
+                                    .dstArrayElement = 0,
+                                    .descriptorCount = 1,
+                                    .descriptorType  = vk::DescriptorType::eUniformBufferDynamic,
+                                    .pBufferInfo     = &descriptor_buffer_info};
+    }
+    comm_vk_logical_device_.updateDescriptorSets(write_descriptor_sets, {});
     return true;
 }
 
@@ -919,20 +896,22 @@ bool VulkanSample::create_vma_vra_objects()
 }
 
 // 查找支持的深度格式
-VkFormat VulkanSample::find_supported_depth_format()
+vk::Format VulkanSample::find_supported_depth_format()
 {
     // 按优先级尝试不同的深度格式
-    std::vector<VkFormat> candidates = {
-        VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT};
+    std::vector<vk::Format> candidates = {
+        vk::Format::eD32Sfloat, vk::Format::eD32SfloatS8Uint, vk::Format::eD24UnormS8Uint};
 
-    for (VkFormat format : candidates)
+    for (vk::Format format : candidates)
     {
-        VkFormatProperties props;
-        vkGetPhysicalDeviceFormatProperties(comm_vk_physical_device_, format, &props);
+        vk::FormatProperties props;
+        comm_vk_physical_device_.getFormatProperties(format, &props);
 
         // 检查该格式是否支持作为深度附件的最佳平铺格式
-        if ((props.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) != 0U)
+        if (props.optimalTilingFeatures & vk::FormatFeatureFlagBits::eDepthStencilAttachment)
         {
+            // 如果支持，则返回该格式
+            Logger::LogInfo("Supported depth format found: " + vk::to_string(format));
             return format;
         }
     }
@@ -947,46 +926,43 @@ bool VulkanSample::create_depth_resources()
     depth_format_ = find_supported_depth_format();
 
     // 创建深度图像
-    VkImageCreateInfo image_info{};
-    image_info.sType         = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-    image_info.imageType     = VK_IMAGE_TYPE_2D;
-    image_info.extent.width  = comm_vk_swapchain_context_.swapchain_info_.extent_.width;
-    image_info.extent.height = comm_vk_swapchain_context_.swapchain_info_.extent_.height;
-    image_info.extent.depth  = 1;
-    image_info.mipLevels     = 1;
-    image_info.arrayLayers   = 1;
-    image_info.format        = depth_format_;
-    image_info.tiling        = VK_IMAGE_TILING_OPTIMAL;
-    image_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    image_info.usage         = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-    image_info.samples       = VK_SAMPLE_COUNT_1_BIT;
-    image_info.sharingMode   = VK_SHARING_MODE_EXCLUSIVE;
+    vk::ImageCreateInfo image_info;
+    image_info.setImageType(vk::ImageType::e2D)
+        .setExtent({comm_vk_swapchain_context_.swapchain_info_.extent_.width,
+                    comm_vk_swapchain_context_.swapchain_info_.extent_.height,
+                    1})
+        .setMipLevels(1)
+        .setArrayLayers(1)
+        .setFormat(depth_format_)
+        .setTiling(vk::ImageTiling::eOptimal)
+        .setInitialLayout(vk::ImageLayout::eUndefined)
+        .setUsage(vk::ImageUsageFlagBits::eDepthStencilAttachment)
+        .setSamples(vk::SampleCountFlagBits::e1)
+        .setSharingMode(vk::SharingMode::eExclusive);
 
     // 创建图像
-    if (vkCreateImage(comm_vk_logical_device_, &image_info, nullptr, &depth_image_) != VK_SUCCESS)
+    depth_image_ = comm_vk_logical_device_.createImage(image_info, nullptr);
+    if (!depth_image_)
     {
         Logger::LogError("Failed to create depth image");
         return false;
     }
 
     // 获取内存需求
-    VkMemoryRequirements mem_requirements;
-    vkGetImageMemoryRequirements(comm_vk_logical_device_, depth_image_, &mem_requirements);
+    vk::MemoryRequirements mem_requirements = comm_vk_logical_device_.getImageMemoryRequirements(depth_image_);
 
     // 分配内存
-    VkMemoryAllocateInfo alloc_info{};
-    alloc_info.sType          = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    alloc_info.allocationSize = mem_requirements.size;
+    vk::MemoryAllocateInfo alloc_info{};
+    alloc_info.setAllocationSize(mem_requirements.size);
 
     // 查找适合的内存类型
-    uint32_t memory_type_index = 0;
-    VkPhysicalDeviceMemoryProperties mem_properties;
-    vkGetPhysicalDeviceMemoryProperties(comm_vk_physical_device_, &mem_properties);
+    uint32_t memory_type_index                        = 0;
+    vk::PhysicalDeviceMemoryProperties mem_properties = comm_vk_physical_device_.getMemoryProperties();
 
     for (uint32_t i = 0; i < mem_properties.memoryTypeCount; i++)
     {
         if (((mem_requirements.memoryTypeBits & (1 << i)) != 0U) &&
-            ((mem_properties.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) != 0U))
+            (mem_properties.memoryTypes[i].propertyFlags & vk::MemoryPropertyFlagBits::eDeviceLocal))
         {
             memory_type_index = i;
             break;
@@ -996,32 +972,29 @@ bool VulkanSample::create_depth_resources()
     alloc_info.memoryTypeIndex = memory_type_index;
 
     // 分配内存
-    if (vkAllocateMemory(comm_vk_logical_device_, &alloc_info, nullptr, &depth_memory_) != VK_SUCCESS)
+    depth_memory_ = comm_vk_logical_device_.allocateMemory(alloc_info, nullptr);
+    if (!depth_memory_)
     {
         Logger::LogError("Failed to allocate depth image memory");
         return false;
     }
 
     // 绑定内存到图像
-    if (vkBindImageMemory(comm_vk_logical_device_, depth_image_, depth_memory_, 0) != VK_SUCCESS)
-    {
-        Logger::LogError("Failed to bind depth image memory");
-        return false;
-    }
+    comm_vk_logical_device_.bindImageMemory(depth_image_, depth_memory_, 0);
 
     // 创建图像视图
-    VkImageViewCreateInfo view_info{};
-    view_info.sType                           = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    view_info.image                           = depth_image_;
-    view_info.viewType                        = VK_IMAGE_VIEW_TYPE_2D;
-    view_info.format                          = depth_format_;
-    view_info.subresourceRange.aspectMask     = VK_IMAGE_ASPECT_DEPTH_BIT;
-    view_info.subresourceRange.baseMipLevel   = 0;
-    view_info.subresourceRange.levelCount     = 1;
-    view_info.subresourceRange.baseArrayLayer = 0;
-    view_info.subresourceRange.layerCount     = 1;
+    vk::ImageViewCreateInfo view_info{};
+    view_info.setImage(depth_image_)
+        .setViewType(vk::ImageViewType::e2D)
+        .setFormat(depth_format_)
+        .setSubresourceRange(vk::ImageSubresourceRange()
+                                 .setAspectMask(vk::ImageAspectFlagBits::eDepth)
+                                 .setBaseMipLevel(0)
+                                 .setLevelCount(1)
+                                 .setBaseArrayLayer(0)
+                                 .setLayerCount(1));
 
-    if (vkCreateImageView(comm_vk_logical_device_, &view_info, nullptr, &depth_image_view_) != VK_SUCCESS)
+    if (comm_vk_logical_device_.createImageView(&view_info, nullptr, &depth_image_view_) != vk::Result::eSuccess)
     {
         Logger::LogError("Failed to create depth image view");
         return false;
@@ -1039,10 +1012,9 @@ bool VulkanSample::create_frame_buffer()
     }
 
     // 创建帧缓冲
-    SVulkanFrameBufferConfig framebuffer_config(
-        comm_vk_swapchain_context_.swapchain_info_.extent_, 
-        comm_vk_swapchain_context_.swapchain_image_views_, 
-        depth_image_view_);
+    SVulkanFrameBufferConfig framebuffer_config(comm_vk_swapchain_context_.swapchain_info_.extent_,
+                                                comm_vk_swapchain_context_.swapchain_image_views_,
+                                                depth_image_view_);
 
     vk_frame_buffer_helper_ = std::make_unique<VulkanFrameBufferHelper>(comm_vk_logical_device_, framebuffer_config);
 
@@ -1080,30 +1052,32 @@ bool VulkanSample::create_pipeline()
     }
 
     // create renderpass
-    SVulkanRenderpassConfig renderpass_config{};
-    renderpass_config.color_format = comm_vk_swapchain_context_.swapchain_info_.surface_format_.format;
-    renderpass_config.depth_format = VK_FORMAT_D32_SFLOAT;  // TODO: Make configurable
-    renderpass_config.sample_count = VK_SAMPLE_COUNT_1_BIT; // TODO: Make configurable
-    vk_renderpass_helper_            = std::make_unique<VulkanRenderpassHelper>(renderpass_config);
+    SVulkanRenderpassConfig renderpass_config{
+        .color_format = comm_vk_swapchain_context_.swapchain_info_.surface_format_.format,
+        .depth_format = vk::Format::eD32Sfloat,     // TODO: Make configurable
+        .sample_count = vk::SampleCountFlagBits::e1 // TODO: Make configurable
+    };
+    vk_renderpass_helper_ = std::make_unique<VulkanRenderpassHelper>(renderpass_config);
     if (!vk_renderpass_helper_->CreateRenderpass(comm_vk_logical_device_))
     {
         return false;
     }
 
     // create pipeline
-    SVulkanPipelineConfig pipeline_config;
-    pipeline_config.swap_chain_extent = comm_vk_swapchain_context_.swapchain_info_.extent_;
-    pipeline_config.shader_module_map = {
-        {EShaderType::kVertexShader, vk_shader_helper_->GetShaderModule(EShaderType::kVertexShader)},
-        {EShaderType::kFragmentShader, vk_shader_helper_->GetShaderModule(EShaderType::kFragmentShader)}};
-    pipeline_config.renderpass = vk_renderpass_helper_->GetRenderpass();
+    SVulkanPipelineConfig pipeline_config{
+        .swap_chain_extent                   = comm_vk_swapchain_context_.swapchain_info_.extent_,
+        .shader_module_map                   = {{EShaderType::kVertexShader,
+                                                 vk_shader_helper_->GetShaderModule(EShaderType::kVertexShader)},
+                                                {EShaderType::kFragmentShader,
+                                                 vk_shader_helper_->GetShaderModule(EShaderType::kFragmentShader)}},
+        .renderpass                          = vk_renderpass_helper_->GetRenderpass(),
+        .vertex_input_binding_description    = test_vertex_input_binding_description_,
+        .vertex_input_attribute_descriptions = test_vertex_input_attributes_,
+        .descriptor_set_layouts              = {descriptor_set_layout_}};
     // pipeline_config.vertex_input_binding_description =
     // vertex_input_binding_description_;
     // pipeline_config.vertex_input_attribute_descriptions =
     // {vertex_input_attribute_position_, vertex_input_attribute_color_};
-    pipeline_config.vertex_input_binding_description    = test_vertex_input_binding_description_;
-    pipeline_config.vertex_input_attribute_descriptions = test_vertex_input_attributes_;
-    pipeline_config.descriptor_set_layouts.push_back(descriptor_set_layout_);
     vk_pipeline_helper_ = std::make_unique<VulkanPipelineHelper>(pipeline_config);
     return vk_pipeline_helper_->CreatePipeline(comm_vk_logical_device_);
 }
@@ -1113,7 +1087,7 @@ bool VulkanSample::allocate_per_frame_command_buffer()
     for (int i = 0; i < engine_config_.frame_count; ++i)
     {
         if (!vk_command_buffer_helper_->AllocateCommandBuffer(
-                {.command_buffer_level = VK_COMMAND_BUFFER_LEVEL_PRIMARY, .command_buffer_count = 1},
+                {.command_buffer_level = vk::CommandBufferLevel::ePrimary, .command_buffer_count = 1},
                 output_frames_[i].command_buffer_id))
         {
             Logger::LogError("Failed to allocate command buffer for frame " + std::to_string(i));
@@ -1157,28 +1131,24 @@ void VulkanSample::draw_frame()
         return;
 
     // get semaphores
-    auto* image_available_semaphore = vk_synchronization_helper_->GetSemaphore(current_image_available_semaphore_id);
-    auto* render_finished_semaphore = vk_synchronization_helper_->GetSemaphore(current_render_finished_semaphore_id);
-    auto* in_flight_fence           = vk_synchronization_helper_->GetFence(current_fence_id);
+    auto image_available_semaphore = vk_synchronization_helper_->GetSemaphore(current_image_available_semaphore_id);
+    auto render_finished_semaphore = vk_synchronization_helper_->GetSemaphore(current_render_finished_semaphore_id);
+    auto in_flight_fence           = vk_synchronization_helper_->GetFence(current_fence_id);
 
     // acquire next image
-    uint32_t image_index    = 0;
-    VkResult acquire_result = vkAcquireNextImageKHR(comm_vk_logical_device_,
-                                                    comm_vk_swapchain_,
-                                                    UINT64_MAX,
-                                                    image_available_semaphore,
-                                                    VK_NULL_HANDLE,
-                                                    &image_index);
-    if (acquire_result == VK_ERROR_OUT_OF_DATE_KHR || acquire_result == VK_SUBOPTIMAL_KHR)
+    auto acquire_result = comm_vk_logical_device_.acquireNextImageKHR(
+        comm_vk_swapchain_, UINT64_MAX, image_available_semaphore, VK_NULL_HANDLE);
+    if (acquire_result.result == vk::Result::eErrorOutOfDateKHR || acquire_result.result == vk::Result::eSuboptimalKHR)
     {
         resize_request_ = true;
         return;
     }
-    if (acquire_result != VK_SUCCESS)
+    if (acquire_result.result != vk::Result::eSuccess)
     {
-        Logger::LogWithVkResult(acquire_result, "Failed to acquire next image", "Succeeded in acquiring next image");
+        Logger::LogError("Failed to acquire next image");
         return;
     }
+    Logger::LogInfo("Succeeded in acquiring next image");
 
     // reset fence before submitting
     if (!vk_synchronization_helper_->ResetFence(current_fence_id))
@@ -1187,59 +1157,47 @@ void VulkanSample::draw_frame()
     // record command buffer
     if (!vk_command_buffer_helper_->ResetCommandBuffer(current_command_buffer_id))
         return;
-    if (!record_command(image_index, current_command_buffer_id))
+    if (!record_command(acquire_result.value, current_command_buffer_id))
         return;
 
     // submit command buffer
-    VkCommandBufferSubmitInfo command_buffer_submit_info{};
-    command_buffer_submit_info.sType         = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO;
-    command_buffer_submit_info.commandBuffer = vk_command_buffer_helper_->GetCommandBuffer(current_command_buffer_id);
+    vk::CommandBufferSubmitInfo command_buffer_submit_info{
+        .commandBuffer = vk_command_buffer_helper_->GetCommandBuffer(current_command_buffer_id)};
 
-    VkSemaphoreSubmitInfo wait_semaphore_info{};
-    wait_semaphore_info.sType     = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
-    wait_semaphore_info.semaphore = image_available_semaphore;
-    wait_semaphore_info.value     = 1;
+    vk::SemaphoreSubmitInfo wait_semaphore_info{.semaphore = image_available_semaphore, .value = 1};
 
-    VkSemaphoreSubmitInfo signal_semaphore_info{};
-    signal_semaphore_info.sType     = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
-    signal_semaphore_info.semaphore = render_finished_semaphore;
-    signal_semaphore_info.value     = 1;
+    vk::SemaphoreSubmitInfo signal_semaphore_info{.semaphore = render_finished_semaphore, .value = 1};
 
-    VkSubmitInfo2 submit_info{};
-    submit_info.sType                    = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;
-    submit_info.commandBufferInfoCount   = 1;
-    submit_info.pCommandBufferInfos      = &command_buffer_submit_info;
-    submit_info.waitSemaphoreInfoCount   = 1;
-    submit_info.pWaitSemaphoreInfos      = &wait_semaphore_info;
-    submit_info.signalSemaphoreInfoCount = 1;
-    submit_info.pSignalSemaphoreInfos    = &signal_semaphore_info;
-    if (!Logger::LogWithVkResult(
-            vkQueueSubmit2(comm_vk_graphics_queue_, 1, &submit_info, in_flight_fence),
-            "Failed to submit command buffer",
-            "Succeeded in submitting command buffer"))
-    {
-        return;
-    }
+    vk::SubmitInfo2 submit_info{
+        .waitSemaphoreInfoCount   = 1,
+        .pWaitSemaphoreInfos      = &wait_semaphore_info,
+        .commandBufferInfoCount   = 1,
+        .pCommandBufferInfos      = &command_buffer_submit_info,
+        .signalSemaphoreInfoCount = 1,
+        .pSignalSemaphoreInfos    = &signal_semaphore_info,
+    };
+    comm_vk_graphics_queue_.submit2(submit_info, in_flight_fence);
+    Logger::LogInfo("Succeeded in submitting command buffer");
 
     // present the image
-    VkPresentInfoKHR present_info{};
-    present_info.sType              = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-    present_info.waitSemaphoreCount = 1;
-    present_info.pWaitSemaphores    = &render_finished_semaphore;
-    present_info.swapchainCount     = 1;
-    present_info.pSwapchains        = &comm_vk_swapchain_;
-    present_info.pImageIndices      = &image_index;
-    VkResult present_result = vkQueuePresentKHR(comm_vk_graphics_queue_, &present_info);
-    if (present_result == VK_ERROR_OUT_OF_DATE_KHR || present_result == VK_SUBOPTIMAL_KHR)
+    vk::PresentInfoKHR present_info{.waitSemaphoreCount = 1,
+                                    .pWaitSemaphores    = &render_finished_semaphore,
+                                    .swapchainCount     = 1,
+                                    .pSwapchains        = &comm_vk_swapchain_,
+                                    .pImageIndices      = &acquire_result.value};
+
+    auto res = comm_vk_graphics_queue_.presentKHR(&present_info);
+    if (res == vk::Result::eErrorOutOfDateKHR || res == vk::Result::eSuboptimalKHR)
     {
         resize_request_ = true;
         return;
     }
-    if (present_result != VK_SUCCESS)
+    if (res != vk::Result::eSuccess)
     {
-        Logger::LogWithVkResult(present_result, "Failed to present image", "Succeeded in presenting image");
+        Logger::LogError("Failed to present image");
         return;
     }
+    Logger::LogInfo("Succeeded in presenting image");
 
     // update frame index
     frame_index_ = (frame_index_ + 1) % engine_config_.frame_count;
@@ -1248,20 +1206,20 @@ void VulkanSample::draw_frame()
 void VulkanSample::resize_swapchain()
 {
     // wait for the device to be idle
-    vkDeviceWaitIdle(comm_vk_logical_device_);
+    comm_vk_logical_device_.waitIdle();
 
     // destroy old vulkan objects
 
-    for (auto *image_view : comm_vk_swapchain_context_.swapchain_image_views_)
+    for (auto image_view : comm_vk_swapchain_context_.swapchain_image_views_)
     {
-        vkDestroyImageView(comm_vk_logical_device_, image_view, nullptr);
+        comm_vk_logical_device_.destroyImageView(image_view, nullptr);
     }
     // Note: Don't destroy swapchain images as they are owned by the swapchain
-    vkDestroySwapchainKHR(comm_vk_logical_device_, comm_vk_swapchain_, nullptr);
+    comm_vk_logical_device_.destroySwapchainKHR(comm_vk_swapchain_, nullptr);
     vk_frame_buffer_helper_.reset();
 
     // reset window size
-    auto current_extent     = vk_window_helper_->GetCurrentWindowExtent();
+    auto current_extent                 = vk_window_helper_->GetCurrentWindowExtent();
     engine_config_.window_config.width  = current_extent.width;
     engine_config_.window_config.height = current_extent.height;
 
@@ -1287,101 +1245,86 @@ bool VulkanSample::record_command(uint32_t image_index, const std::string& comma
 
     // begin command recording
     if (!vk_command_buffer_helper_->BeginCommandBufferRecording(command_buffer_id,
-                                                             VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT))
+                                                                vk::CommandBufferUsageFlagBits::eOneTimeSubmit))
         return false;
 
     // collect needed objects
-    auto *command_buffer = vk_command_buffer_helper_->GetCommandBuffer(command_buffer_id);
+    auto command_buffer = vk_command_buffer_helper_->GetCommandBuffer(command_buffer_id);
 
     // 从暂存缓冲区复制到本地缓冲区
-    VkBufferCopy buffer_copy_info{};
-    buffer_copy_info.srcOffset = 0;
-    buffer_copy_info.dstOffset = 0;
-    buffer_copy_info.size      = test_staging_buffer_allocation_info_.size;
-    vkCmdCopyBuffer(command_buffer, test_staging_buffer_, test_local_buffer_, 1, &buffer_copy_info);
+    vk::BufferCopy buffer_copy_info{
+        .srcOffset = buffer_copy_info.srcOffset = 0,
+        .dstOffset = buffer_copy_info.dstOffset = 0,
+        .size = buffer_copy_info.size = test_staging_buffer_allocation_info_.size,
+    };
+    command_buffer.copyBuffer(test_staging_buffer_, test_local_buffer_, 1, &buffer_copy_info);
 
     // 设置内存屏障以确保复制完成
-    VkBufferMemoryBarrier2 buffer_memory_barrier{};
-    buffer_memory_barrier.sType         = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2;
-    buffer_memory_barrier.srcStageMask  = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
-    buffer_memory_barrier.srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
-    buffer_memory_barrier.dstStageMask  = VK_PIPELINE_STAGE_2_VERTEX_INPUT_BIT;
-    buffer_memory_barrier.dstAccessMask = VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT;
-    buffer_memory_barrier.buffer        = test_local_buffer_;
-    buffer_memory_barrier.offset        = 0;
-    buffer_memory_barrier.size          = VK_WHOLE_SIZE;
+    vk::BufferMemoryBarrier2 buffer_memory_barrier{
+        .srcStageMask  = vk::PipelineStageFlagBits2::eTransfer,
+        .srcAccessMask = vk::AccessFlagBits2::eTransferWrite,
+        .dstStageMask  = vk::PipelineStageFlagBits2::eVertexInput,
+        .dstAccessMask = vk::AccessFlagBits2::eVertexAttributeRead,
+        .buffer        = test_local_buffer_,
+        .offset        = 0,
+        .size          = VK_WHOLE_SIZE,
+    };
 
-    VkDependencyInfo dependency_info{};
-    dependency_info.sType                    = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
-    dependency_info.bufferMemoryBarrierCount = 1;
-    dependency_info.pBufferMemoryBarriers    = &buffer_memory_barrier;
-    vkCmdPipelineBarrier2(command_buffer, &dependency_info);
+    vk::DependencyInfo dependency_info{.bufferMemoryBarrierCount = 1, .pBufferMemoryBarriers = &buffer_memory_barrier};
+    command_buffer.pipelineBarrier2(&dependency_info);
 
     // begin renderpass
-    VkClearValue clear_color     = {};
-    clear_color.color.float32[0] = 0.1F;
-    clear_color.color.float32[1] = 0.1F;
-    clear_color.color.float32[2] = 0.1F;
-    clear_color.color.float32[3] = 1.0F;
+    
+    vk::ClearValue clear_values_color{.color = {std::array<float, 4>{0.1F, 0.1F, 0.1F, 1.0F}}};
+    vk::ClearValue clear_value_depth{.depthStencil = {.depth = 1.0F, .stencil = 0}};
+    std::vector<vk::ClearValue> clear_values = {clear_values_color, clear_value_depth};
 
-    VkClearValue clear_values[2];
-    clear_values[0].color        = {{0.1F, 0.1F, 0.1F, 1.0F}};
-    clear_values[1].depthStencil = {.depth = 1.0F, .stencil = 0}; // 设置深度清除值为1.0（远面）
+    vk::RenderPassBeginInfo renderpass_info{
+        .renderPass      = vk_renderpass_helper_->GetRenderpass(),
+        .framebuffer     = (*vk_frame_buffer_helper_->GetFramebuffers())[image_index],
+        .renderArea      = {.offset = {.x = 0, .y = 0}, .extent = comm_vk_swapchain_context_.swapchain_info_.extent_},
+        .clearValueCount = static_cast<uint32_t>(clear_values.size()),
+        .pClearValues    = clear_values.data()};
 
-    VkRenderPassBeginInfo renderpass_info{};
-    renderpass_info.sType             = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    renderpass_info.renderPass        = vk_renderpass_helper_->GetRenderpass();
-    renderpass_info.framebuffer       = (*vk_frame_buffer_helper_->GetFramebuffers())[image_index];
-    renderpass_info.renderArea.offset = {.x = 0, .y = 0};
-    renderpass_info.renderArea.extent = comm_vk_swapchain_context_.swapchain_info_.extent_;
-    renderpass_info.clearValueCount   = 2;
-    renderpass_info.pClearValues      = clear_values;
-
-    vkCmdBeginRenderPass(command_buffer, &renderpass_info, VK_SUBPASS_CONTENTS_INLINE);
+    command_buffer.beginRenderPass(renderpass_info, vk::SubpassContents::eInline);
 
     // bind pipeline
-    vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vk_pipeline_helper_->GetPipeline());
+    command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, vk_pipeline_helper_->GetPipeline());
 
     // bind descriptor set
     auto offset =
         uniform_batch_handle_[vra::VraBuiltInBatchIds::CPU_GPU_Frequently].offsets[uniform_buffer_id_[frame_index_]];
     auto dynamic_offset = static_cast<uint32_t>(offset);
-    vkCmdBindDescriptorSets(command_buffer,
-                            VK_PIPELINE_BIND_POINT_GRAPHICS,
-                            vk_pipeline_helper_->GetPipelineLayout(),
-                            0,
-                            1,
-                            &descriptor_set_,
-                            1,
-                            &dynamic_offset);
+    command_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
+                                      vk_pipeline_helper_->GetPipelineLayout(),
+                                      0,
+                                      1,
+                                      descriptor_sets_.data(),
+                                      1,
+                                      &dynamic_offset);
 
     // dynamic state update
-    VkViewport viewport{};
-    viewport.x        = 0.0F;
-    viewport.y        = 0.0F;
-    viewport.width    = static_cast<float>(comm_vk_swapchain_context_.swapchain_info_.extent_.width);
-    viewport.height   = static_cast<float>(comm_vk_swapchain_context_.swapchain_info_.extent_.height);
-    viewport.minDepth = 0.0F;
-    viewport.maxDepth = 1.0F;
-    vkCmdSetViewport(command_buffer, 0, 1, &viewport);
+    vk::Viewport viewport{.x        = 0.0F,
+                          .y        = 0.0F,
+                          .width    = static_cast<float>(comm_vk_swapchain_context_.swapchain_info_.extent_.width),
+                          .height   = static_cast<float>(comm_vk_swapchain_context_.swapchain_info_.extent_.height),
+                          .minDepth = 0.0F,
+                          .maxDepth = 1.0F};
+    command_buffer.setViewport(0, 1, &viewport);
 
-    VkRect2D scissor{};
-    scissor.offset = {.x=0, .y=0};
-    scissor.extent = comm_vk_swapchain_context_.swapchain_info_.extent_;
-    vkCmdSetScissor(command_buffer, 0, 1, &scissor);
+    vk::Rect2D scissor{.offset = {.x = 0, .y = 0}, .extent = comm_vk_swapchain_context_.swapchain_info_.extent_};
+    command_buffer.setScissor(0, 1, &scissor);
 
     // 绑定顶点和索引缓冲区
-    vkCmdBindVertexBuffers(
-        command_buffer,
+    command_buffer.bindVertexBuffers(
         0,
         1,
         &test_local_buffer_,
         &test_local_host_batch_handle_[vra::VraBuiltInBatchIds::GPU_Only].offsets[test_vertex_buffer_id_]);
-    vkCmdBindIndexBuffer(
-        command_buffer,
+    command_buffer.bindIndexBuffer(
         test_local_buffer_,
         test_local_host_batch_handle_[vra::VraBuiltInBatchIds::GPU_Only].offsets[test_index_buffer_id_],
-        VK_INDEX_TYPE_UINT32);
+        vk::IndexType::eUint32);
 
     // 遍历每个 mesh 进行绘制
     for (const auto& mesh : mesh_list_)
@@ -1390,20 +1333,19 @@ bool VulkanSample::record_command(uint32_t image_index, const std::string& comma
         // if (std::strcmp(mesh.name.c_str(), "arch_stones_02") != 0) {
         //     continue;
         // }
-        for (const auto & primitive : mesh.primitives)
+        for (const auto& primitive : mesh.primitives)
         {
             // 绘制当前图元
-            vkCmdDrawIndexed(command_buffer,
-                             primitive.index_count, // 使用实际的索引数量
-                             1,
-                             primitive.first_index, // 使用实际的索引偏移量
-                             0,
-                             0);
+            command_buffer.drawIndexed(primitive.index_count, // 使用实际的索引数量
+                                       1,
+                                       primitive.first_index, // 使用实际的索引偏移量
+                                       0,
+                                       0);
         }
     }
 
     // end renderpass
-    vkCmdEndRenderPass(command_buffer);
+    command_buffer.endRenderPass();
 
     // end command recording
     return vk_command_buffer_helper_->EndCommandBufferRecording(command_buffer_id);
@@ -1421,13 +1363,13 @@ void VulkanSample::update_uniform_buffer(uint32_t current_frame_index)
     );
 
     // update the projection matrix
-    mvp_matrices_[current_frame_index].projection =
-        glm::perspective(glm::radians(camera_.zoom), // FOV
-                         static_cast<float>(comm_vk_swapchain_context_.swapchain_info_.extent_.width) /
-                             static_cast<float>(comm_vk_swapchain_context_.swapchain_info_.extent_.height), // aspect ratio
-                         0.1F,                                                                 // near plane
-                         1000.0F // 增加远平面距离，确保能看到远处的物体
-        );
+    mvp_matrices_[current_frame_index].projection = glm::perspective(
+        glm::radians(camera_.zoom), // FOV
+        static_cast<float>(comm_vk_swapchain_context_.swapchain_info_.extent_.width) /
+            static_cast<float>(comm_vk_swapchain_context_.swapchain_info_.extent_.height), // aspect ratio
+        0.1F,                                                                              // near plane
+        1000.0F // 增加远平面距离，确保能看到远处的物体
+    );
 
     // reverse the Y-axis in Vulkan's NDC coordinate system
     mvp_matrices_[current_frame_index].projection[1][1] *= -1;
@@ -1476,26 +1418,22 @@ void VulkanSample::create_drawcall_list_buffer()
     vra::VraRawData index_buffer_data{.pData_ = indices_.data(), .size_ = sizeof(uint32_t) * indices_.size()};
 
     // 顶点缓冲区创建信息
-    VkBufferCreateInfo vertex_buffer_create_info{};
-    vertex_buffer_create_info.sType       = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    vertex_buffer_create_info.usage       = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-    vertex_buffer_create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    vk::BufferCreateInfo vertex_buffer_create_info{.usage = vk::BufferUsageFlagBits::eVertexBuffer |
+                                                            vk::BufferUsageFlagBits::eTransferDst,
+                                                   .sharingMode = vk::SharingMode::eExclusive};
     vra::VraDataDesc vertex_buffer_desc{
         vra::VraDataMemoryPattern::GPU_Only, vra::VraDataUpdateRate::RarelyOrNever, vertex_buffer_create_info};
 
     // 索引缓冲区创建信息
-    VkBufferCreateInfo index_buffer_create_info{};
-    index_buffer_create_info.sType       = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    index_buffer_create_info.usage       = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-    index_buffer_create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    vk::BufferCreateInfo index_buffer_create_info{.usage = vk::BufferUsageFlagBits::eIndexBuffer |
+                                                           vk::BufferUsageFlagBits::eTransferDst,
+                                                  .sharingMode = vk::SharingMode::eExclusive};
     vra::VraDataDesc index_buffer_desc{
         vra::VraDataMemoryPattern::GPU_Only, vra::VraDataUpdateRate::RarelyOrNever, index_buffer_create_info};
 
     // 暂存缓冲区创建信息
-    VkBufferCreateInfo staging_buffer_create_info{};
-    staging_buffer_create_info.sType       = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    staging_buffer_create_info.usage       = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-    staging_buffer_create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    vk::BufferCreateInfo staging_buffer_create_info{.usage       = vk::BufferUsageFlagBits::eTransferSrc,
+                                                    .sharingMode = vk::SharingMode::eExclusive};
     vra::VraDataDesc staging_vertex_buffer_desc{
         vra::VraDataMemoryPattern::CPU_GPU, vra::VraDataUpdateRate::RarelyOrNever, staging_buffer_create_info};
     vra::VraDataDesc staging_index_buffer_desc{
@@ -1533,7 +1471,7 @@ void VulkanSample::create_drawcall_list_buffer()
     vmaCreateBuffer(vma_allocator_,
                     &test_local_buffer_create_info,
                     &allocation_create_info,
-                    &test_local_buffer_,
+                    reinterpret_cast<VkBuffer*>(&test_local_buffer_),
                     &test_local_buffer_allocation_,
                     &test_local_buffer_allocation_info_);
 
@@ -1547,13 +1485,13 @@ void VulkanSample::create_drawcall_list_buffer()
     vmaCreateBuffer(vma_allocator_,
                     &test_host_buffer_create_info,
                     &staging_allocation_create_info,
-                    &test_staging_buffer_,
+                    reinterpret_cast<VkBuffer*>(&test_staging_buffer_),
                     &test_staging_buffer_allocation_,
                     &test_staging_buffer_allocation_info_);
 
     // 复制数据到暂存缓冲区
     auto consolidate_data = test_local_host_batch_handle_[vra::VraBuiltInBatchIds::CPU_GPU_Rarely].consolidated_data;
-    void* data = nullptr;
+    void* data            = nullptr;
     vmaInvalidateAllocation(vma_allocator_, test_staging_buffer_allocation_, 0, VK_WHOLE_SIZE);
     vmaMapMemory(vma_allocator_, test_staging_buffer_allocation_, &data);
     memcpy(data, consolidate_data.data(), consolidate_data.size());
@@ -1563,31 +1501,37 @@ void VulkanSample::create_drawcall_list_buffer()
     // 设置顶点输入绑定描述
     test_vertex_input_binding_description_.binding   = 0;
     test_vertex_input_binding_description_.stride    = sizeof(gltf::Vertex);
-    test_vertex_input_binding_description_.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+    test_vertex_input_binding_description_.inputRate = vk::VertexInputRate::eVertex;
 
     // 设置顶点属性描述
     test_vertex_input_attributes_.clear();
 
     // 使用更安全的偏移量计算，确保 offsetof 计算正确
     // position
-    test_vertex_input_attributes_.push_back(VkVertexInputAttributeDescription{
-        .location = 0, .binding = 0, .format = VK_FORMAT_R32G32B32_SFLOAT, .offset = offsetof(gltf::Vertex, position)});
+    test_vertex_input_attributes_.emplace_back(
+        vk::VertexInputAttributeDescription{.location = 0,
+                                            .binding  = 0,
+                                            .format   = vk::Format::eR32G32B32Sfloat,
+                                            .offset   = offsetof(gltf::Vertex, position)});
     // color
-    test_vertex_input_attributes_.push_back(VkVertexInputAttributeDescription{
-        .location = 1, .binding = 0, .format = VK_FORMAT_R32G32B32A32_SFLOAT, .offset = offsetof(gltf::Vertex, color)});
+    test_vertex_input_attributes_.emplace_back(
+        vk::VertexInputAttributeDescription{.location = 1,
+                                            .binding  = 0,
+                                            .format   = vk::Format::eR32G32B32A32Sfloat,
+                                            .offset   = offsetof(gltf::Vertex, color)});
     // normal
-    test_vertex_input_attributes_.push_back(VkVertexInputAttributeDescription{
-        .location = 2, .binding = 0, .format = VK_FORMAT_R32G32B32_SFLOAT, .offset = offsetof(gltf::Vertex, normal)});
+    test_vertex_input_attributes_.emplace_back(vk::VertexInputAttributeDescription{
+        .location = 2, .binding = 0, .format = vk::Format::eR32G32B32Sfloat, .offset = offsetof(gltf::Vertex, normal)});
     // tangent
-    test_vertex_input_attributes_.push_back(
-        VkVertexInputAttributeDescription{.location = 3,
-                                          .binding  = 0,
-                                          .format   = VK_FORMAT_R32G32B32A32_SFLOAT,
-                                          .offset   = offsetof(gltf::Vertex, tangent)});
+    test_vertex_input_attributes_.emplace_back(
+        vk::VertexInputAttributeDescription{.location = 3,
+                                            .binding  = 0,
+                                            .format   = vk::Format::eR32G32B32A32Sfloat,
+                                            .offset   = offsetof(gltf::Vertex, tangent)});
     // uv0
-    test_vertex_input_attributes_.push_back(VkVertexInputAttributeDescription{
-        .location = 4, .binding = 0, .format = VK_FORMAT_R32G32_SFLOAT, .offset = offsetof(gltf::Vertex, uv0)});
+    test_vertex_input_attributes_.emplace_back(vk::VertexInputAttributeDescription{
+        .location = 4, .binding = 0, .format = vk::Format::eR32G32Sfloat, .offset = offsetof(gltf::Vertex, uv0)});
     // uv1
-    test_vertex_input_attributes_.push_back(VkVertexInputAttributeDescription{
-        .location = 5, .binding = 0, .format = VK_FORMAT_R32G32_SFLOAT, .offset = offsetof(gltf::Vertex, uv1)});
+    test_vertex_input_attributes_.emplace_back(vk::VertexInputAttributeDescription{
+        .location = 5, .binding = 0, .format = vk::Format::eR32G32Sfloat, .offset = offsetof(gltf::Vertex, uv1)});
 }

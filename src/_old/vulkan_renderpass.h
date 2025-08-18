@@ -1,27 +1,27 @@
 #pragma once
 
-#include <vulkan/vulkan.h>
-#include <vector>
-#include "utility/logger.h"
+#define VULKAN_HPP_NO_CONSTRUCTORS
+#include <vulkan/vulkan.hpp>
+
 
 struct SVulkanRenderpassConfig
 {
-    VkFormat color_format;
-    VkFormat depth_format;
-    VkSampleCountFlagBits sample_count;
+    vk::Format color_format;
+    vk::Format depth_format;
+    vk::SampleCountFlagBits sample_count;
 };
 
 class VulkanRenderpassHelper
 {
 private:
     SVulkanRenderpassConfig config_;
-    VkRenderPass renderpass_;
-    VkDevice device_;
+    vk::RenderPass renderpass_;
+    vk::Device device_;
 public:
     VulkanRenderpassHelper() = delete;
     VulkanRenderpassHelper(SVulkanRenderpassConfig config) : config_(config) {};
     ~VulkanRenderpassHelper();
 
-    bool CreateRenderpass(VkDevice device);
-    VkRenderPass GetRenderpass() const { return renderpass_; }
+    bool CreateRenderpass(vk::Device device);
+    vk::RenderPass GetRenderpass() const { return renderpass_; }
 };
