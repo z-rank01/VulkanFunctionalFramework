@@ -1,37 +1,35 @@
 #pragma once
 
-#include <vulkan/vulkan.h>
-#include <vulkan/vulkan_core.h>
-#include <vector>
-#include <string>
-#include <map>
+#define VULKAN_HPP_NO_CONSTRUCTORS
+#include <vulkan/vulkan.hpp>
 
+#include <vector>
+#include <map>
+#include <utility>
 #include "vulkan_shader.h"
-#include "vulkan_window.h"
-#include "utility/logger.h"
 
 struct SVulkanPipelineConfig
 {
-    VkExtent2D swap_chain_extent;
-    std::map<EShaderType, VkShaderModule> shader_module_map;
-    VkRenderPass renderpass;
-    VkVertexInputBindingDescription vertex_input_binding_description;
-    std::vector<VkVertexInputAttributeDescription> vertex_input_attribute_descriptions;
-    std::vector<VkDescriptorSetLayout> descriptor_set_layouts;
+    vk::Extent2D swap_chain_extent;
+    std::map<EShaderType, vk::ShaderModule> shader_module_map;
+    vk::RenderPass renderpass;
+    vk::VertexInputBindingDescription vertex_input_binding_description;
+    std::vector<vk::VertexInputAttributeDescription> vertex_input_attribute_descriptions;
+    std::vector<vk::DescriptorSetLayout> descriptor_set_layouts;
 };
 
 class VulkanPipelineHelper
 {
 private:
     SVulkanPipelineConfig config_;
-    VkPipelineLayout pipeline_layout_;
-    VkPipeline pipeline_;
-    VkDevice device_;
+    vk::PipelineLayout pipeline_layout_;
+    vk::Pipeline pipeline_;
+    vk::Device device_;
 public:
-    VulkanPipelineHelper(SVulkanPipelineConfig config) : config_(config) {}
+    VulkanPipelineHelper(SVulkanPipelineConfig config) : config_(std::move(config)) {}
     ~VulkanPipelineHelper();
 
-    bool CreatePipeline(VkDevice device);
-    VkPipeline GetPipeline() const { return pipeline_; }
-    VkPipelineLayout GetPipelineLayout() const { return pipeline_layout_; }
+    bool CreatePipeline(vk::Device device);
+    vk::Pipeline GetPipeline() const { return pipeline_; }
+    vk::PipelineLayout GetPipelineLayout() const { return pipeline_layout_; }
 };
