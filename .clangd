@@ -136,20 +136,7 @@ MissingIncludes: None
 # 代码完成设定
 Completion:
   AllScopes: true
-  
-# 头文件包含路径
-InlayHints:
-  Enabled: true
-  ParameterNames: true
-  DeducedTypes: true
-  Designators: true
-
-# 启用代码操作功能
-CodeActions:
-  # 启用自动修复功能
-  Enabled: true
-  # 启用 include 建议
-  IncludeInsertion: true
+  HeaderInsertion: Never
 
 # 索引设置
 Index:
