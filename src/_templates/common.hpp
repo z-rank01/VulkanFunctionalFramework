@@ -1,28 +1,24 @@
 #ifndef COMMON_H
 #define COMMON_H
 
-// #include <vulkan/vulkan.h>
-// #include <vulkan/vulkan_core.h>
-#include <algorithm>
-#include <vulkan/vulkan.hpp>
-
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
 #include <numeric>
 #include <optional>
 #include <ranges>
-#include <stdexcept>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+#include <vulkan/vulkan.hpp>
 #include <vulkan/vulkan_enums.hpp>
 #include <vulkan/vulkan_funcs.hpp>
 #include <vulkan/vulkan_handles.hpp>
 #include <vulkan/vulkan_structs.hpp>
 
 #include "_callable/callable.h"
+
 
 namespace templates::common
 {
@@ -196,7 +192,7 @@ struct CommVkPhysicalDeviceContext
     struct SelectionCriteria
     {
         std::optional<vk::PhysicalDeviceType> preferred_device_type_ = std::nullopt;
-        std::optional<uint32_t> minimum_api_version_               = std::nullopt;
+        std::optional<uint32_t> minimum_api_version_                 = std::nullopt;
         vk::SurfaceKHR surface_                                      = VK_NULL_HANDLE;
 
         // required features
@@ -453,8 +449,8 @@ inline auto select_physical_device()
         auto score_device =
             [&ctx](vk::PhysicalDevice device) -> std::optional<std::pair<int, CommVkPhysicalDeviceContext>>
         {
-            vk::PhysicalDeviceProperties properties = device.getProperties();
-            vk::PhysicalDeviceFeatures features = device.getFeatures();
+            vk::PhysicalDeviceProperties properties         = device.getProperties();
+            vk::PhysicalDeviceFeatures features             = device.getFeatures();
             vk::PhysicalDeviceMemoryProperties memory_props = device.getMemoryProperties();
 
             // Get queue family properties
@@ -489,7 +485,8 @@ inline auto select_physical_device()
                                                return std::ranges::any_of(extensions,
                                                                           [required_ext](const auto& available_ext) {
                                                                               return std::string_view(required_ext) ==
-                                                                                     std::string_view(available_ext.extensionName);
+                                                                                     std::string_view(
+                                                                                         available_ext.extensionName);
                                                                           });
                                            });
             };
@@ -527,13 +524,14 @@ inline auto select_physical_device()
             auto meets_features_requirements = [&]() -> bool
             {
                 // Check Vulkan 1.0 features
-                auto check_features_1_0 = [](const VkPhysicalDeviceFeatures& required, const VkPhysicalDeviceFeatures& available) -> bool
+                auto check_features_1_0 = [](const VkPhysicalDeviceFeatures& required,
+                                             const VkPhysicalDeviceFeatures& available) -> bool
                 {
                     // Use a simple approach: check each feature field
-                    const auto* req_array = reinterpret_cast<const VkBool32*>(&required);
-                    const auto* avail_array = reinterpret_cast<const VkBool32*>(&available);
+                    const auto* req_array          = reinterpret_cast<const VkBool32*>(&required);
+                    const auto* avail_array        = reinterpret_cast<const VkBool32*>(&available);
                     constexpr size_t feature_count = sizeof(VkPhysicalDeviceFeatures) / sizeof(VkBool32);
-                    
+
                     for (size_t i = 0; i < feature_count; ++i)
                     {
                         if (req_array[i] == VK_TRUE && avail_array[i] != VK_TRUE)
@@ -544,9 +542,12 @@ inline auto select_physical_device()
                     return true;
                 };
 
-                // Check Vulkan 1.1 features
-                #define CHECK_FEATURE(feature) if (required.feature == VK_TRUE && available.feature != VK_TRUE) return false;
-                auto check_features_1_1 = [](const vk::PhysicalDeviceVulkan11Features& required, const vk::PhysicalDeviceVulkan11Features& available) -> bool
+// Check Vulkan 1.1 features
+#define CHECK_FEATURE(feature)                                                                                         \
+    if (required.feature == VK_TRUE && available.feature != VK_TRUE)                                                   \
+        return false;
+                auto check_features_1_1 = [](const vk::PhysicalDeviceVulkan11Features& required,
+                                             const vk::PhysicalDeviceVulkan11Features& available) -> bool
                 {
                     CHECK_FEATURE(storageBuffer16BitAccess)
                     CHECK_FEATURE(uniformAndStorageBuffer16BitAccess)
@@ -560,12 +561,13 @@ inline auto select_physical_device()
                     CHECK_FEATURE(protectedMemory)
                     CHECK_FEATURE(samplerYcbcrConversion)
                     CHECK_FEATURE(shaderDrawParameters)
-                    
+
                     return true;
                 };
 
                 // Check Vulkan 1.2 features
-                auto check_features_1_2 = [](const VkPhysicalDeviceVulkan12Features& required, const VkPhysicalDeviceVulkan12Features& available) -> bool
+                auto check_features_1_2 = [](const VkPhysicalDeviceVulkan12Features& required,
+                                             const VkPhysicalDeviceVulkan12Features& available) -> bool
                 {
                     CHECK_FEATURE(samplerMirrorClampToEdge)
                     CHECK_FEATURE(drawIndirectCount)
@@ -614,13 +616,14 @@ inline auto select_physical_device()
                     CHECK_FEATURE(shaderOutputViewportIndex)
                     CHECK_FEATURE(shaderOutputLayer)
                     CHECK_FEATURE(subgroupBroadcastDynamicId)
-                    
-                    #undef CHECK_FEATURE_12
+
+#undef CHECK_FEATURE_12
                     return true;
                 };
 
                 // Check Vulkan 1.3 features
-                auto check_features_1_3 = [](const VkPhysicalDeviceVulkan13Features& required, const VkPhysicalDeviceVulkan13Features& available) -> bool
+                auto check_features_1_3 = [](const VkPhysicalDeviceVulkan13Features& required,
+                                             const VkPhysicalDeviceVulkan13Features& available) -> bool
                 {
                     CHECK_FEATURE(robustImageAccess)
                     CHECK_FEATURE(inlineUniformBlock)
@@ -637,8 +640,8 @@ inline auto select_physical_device()
                     CHECK_FEATURE(dynamicRendering)
                     CHECK_FEATURE(shaderIntegerDotProduct)
                     CHECK_FEATURE(maintenance4)
-                    
-                    #undef CHECK_FEATURE_13
+
+#undef CHECK_FEATURE_13
                     return true;
                 };
 
@@ -676,7 +679,8 @@ inline auto select_physical_device()
             };
 
             // Check all requirements including features
-            if (!meets_api_version() || !meets_extension_requirements() || !meets_queue_requirements() || !meets_features_requirements())
+            if (!meets_api_version() || !meets_extension_requirements() || !meets_queue_requirements() ||
+                !meets_features_requirements())
             {
                 return std::nullopt;
             }
@@ -697,15 +701,15 @@ inline auto select_physical_device()
 
             // Memory score
             auto device_memory_heaps =
-                std::views::iota(0U, memory_props.memoryHeapCount) |
-                std::views::transform(
-                    [&memory_props](uint32_t idx)
+                std::views::iota(0U, memory_props.memoryHeapCount) 
+                | std::views::transform(
+                    [&memory_props](uint32_t idx) -> vk::MemoryHeap
                     {
-                        // Ensure index is within bounds
                         assert(idx < VK_MAX_MEMORY_HEAPS && "Memory heap index out of bounds");
                         return memory_props.memoryHeaps[idx];
-                    }) |
-                std::views::filter([](vk::MemoryHeap heap) { return heap.flags & vk::MemoryHeapFlagBits::eDeviceLocal; });
+                    }) 
+                | std::views::filter([](const vk::MemoryHeap& heap)
+                                   { return static_cast<bool>(heap.flags & vk::MemoryHeapFlagBits::eDeviceLocal); });
 
             vk::DeviceSize total_memory =
                 std::accumulate(device_memory_heaps.begin(),
@@ -811,13 +815,13 @@ inline auto create_logical_device_context(const CommVkPhysicalDeviceContext& phy
             ctx.device_properties_       = physical_device_ctx.device_properties_;
             ctx.device_features_         = physical_device_ctx.device_features_;
             ctx.queue_family_properties_ = physical_device_ctx.queue_family_properties_;
-            
+
             // Copy the validated features from physical device context
             ctx.validated_features_    = physical_device_ctx.selection_criteria_.required_features_;
             ctx.validated_features_11_ = physical_device_ctx.selection_criteria_.required_features_11_;
             ctx.validated_features_12_ = physical_device_ctx.selection_criteria_.required_features_12_;
             ctx.validated_features_13_ = physical_device_ctx.selection_criteria_.required_features_13_;
-            
+
             return ctx;
         }());
 }
@@ -886,26 +890,26 @@ inline auto add_graphics_queue(const std::string& queue_name = "graphics",
         // Find graphics queue family
         std::optional<uint32_t> graphics_family;
 
-        auto graphics_families =
-            std::views::iota(0U, static_cast<uint32_t>(ctx.queue_family_properties_.size())) |
-            std::views::filter(
-                [&](uint32_t idx)
-                {
-                    const auto& family = ctx.queue_family_properties_[idx];
+        auto graphics_families = std::views::iota(0U, static_cast<uint32_t>(ctx.queue_family_properties_.size())) |
+                                 std::views::filter(
+                                     [&](uint32_t idx)
+                                     {
+                                         const auto& family = ctx.queue_family_properties_[idx];
 
-                    // Check for graphics support
-                    if (!(family.queueFlags & vk::QueueFlagBits::eGraphics))
-                        return false;
+                                         // Check for graphics support
+                                         if (!(family.queueFlags & vk::QueueFlagBits::eGraphics))
+                                             return false;
 
-                    // If surface provided, check for present support
-                    if (surface != VK_NULL_HANDLE)
-                    {
-                        vk::Bool32 present_support = ctx.vk_physical_device_.getSurfaceSupportKHR(idx, surface);
-                        return present_support == vk::True;
-                    }
+                                         // If surface provided, check for present support
+                                         if (surface != VK_NULL_HANDLE)
+                                         {
+                                             vk::Bool32 present_support =
+                                                 ctx.vk_physical_device_.getSurfaceSupportKHR(idx, surface);
+                                             return present_support == vk::True;
+                                         }
 
-                    return true;
-                });
+                                         return true;
+                                     });
 
         auto first_suitable_graphics = graphics_families.begin();
         if (first_suitable_graphics != graphics_families.end())
@@ -931,14 +935,14 @@ inline auto add_compute_queue(const std::string& queue_name = "compute", uint32_
     return [queue_name, queue_count](CommVkLogicalDeviceContext ctx) -> callable::Chainable<CommVkLogicalDeviceContext>
     {
         // find dedicated compute queue family first
-        auto dedicated_compute =
-            std::ranges::find_if(std::views::iota(0U, static_cast<uint32_t>(ctx.queue_family_properties_.size())),
-                                 [&](uint32_t idx)
-                                 {
-                                     const auto& family = ctx.queue_family_properties_[idx];
-                                     return (family.queueFlags & vk::QueueFlagBits::eCompute) &&
-                                            !(family.queueFlags & (vk::QueueFlagBits::eGraphics | vk::QueueFlagBits::eTransfer));
-                                 });
+        auto dedicated_compute = std::ranges::find_if(
+            std::views::iota(0U, static_cast<uint32_t>(ctx.queue_family_properties_.size())),
+            [&](uint32_t idx)
+            {
+                const auto& family = ctx.queue_family_properties_[idx];
+                return (family.queueFlags & vk::QueueFlagBits::eCompute) &&
+                       !(family.queueFlags & (vk::QueueFlagBits::eGraphics | vk::QueueFlagBits::eTransfer));
+            });
         if (dedicated_compute !=
             std::ranges::end(std::views::iota(0U, static_cast<uint32_t>(ctx.queue_family_properties_.size()))))
         {
@@ -946,14 +950,14 @@ inline auto add_compute_queue(const std::string& queue_name = "compute", uint32_
         }
 
         // Otherwise find graphics queue that supports compute
-        auto compute_graphics = std::ranges::find_if(
-            std::views::iota(0U, static_cast<uint32_t>(ctx.queue_family_properties_.size())),
-            [&](uint32_t idx)
-            {
-                const auto& family = ctx.queue_family_properties_[idx];
-                return (family.queueFlags & vk::QueueFlagBits::eCompute) && 
-                       (family.queueFlags & vk::QueueFlagBits::eGraphics);
-            });
+        auto compute_graphics =
+            std::ranges::find_if(std::views::iota(0U, static_cast<uint32_t>(ctx.queue_family_properties_.size())),
+                                 [&](uint32_t idx)
+                                 {
+                                     const auto& family = ctx.queue_family_properties_[idx];
+                                     return (family.queueFlags & vk::QueueFlagBits::eCompute) &&
+                                            (family.queueFlags & vk::QueueFlagBits::eGraphics);
+                                 });
         if (compute_graphics !=
             std::ranges::end(std::views::iota(0U, static_cast<uint32_t>(ctx.queue_family_properties_.size()))))
         {
@@ -974,14 +978,14 @@ inline auto add_transfer_queue(const std::string& queue_name = "transfer", uint3
     return [queue_name, queue_count](CommVkLogicalDeviceContext ctx) -> callable::Chainable<CommVkLogicalDeviceContext>
     {
         // find dedicated compute queue family first
-        auto dedicated_transfer =
-            std::ranges::find_if(std::views::iota(0U, static_cast<uint32_t>(ctx.queue_family_properties_.size())),
-                                 [&](uint32_t idx)
-                                 {
-                                     const auto& family = ctx.queue_family_properties_[idx];
-                                     return (family.queueFlags & vk::QueueFlagBits::eTransfer) &&
-                                            !(family.queueFlags & (vk::QueueFlagBits::eGraphics | vk::QueueFlagBits::eCompute));
-                                 });
+        auto dedicated_transfer = std::ranges::find_if(
+            std::views::iota(0U, static_cast<uint32_t>(ctx.queue_family_properties_.size())),
+            [&](uint32_t idx)
+            {
+                const auto& family = ctx.queue_family_properties_[idx];
+                return (family.queueFlags & vk::QueueFlagBits::eTransfer) &&
+                       !(family.queueFlags & (vk::QueueFlagBits::eGraphics | vk::QueueFlagBits::eCompute));
+            });
         if (dedicated_transfer !=
             std::ranges::end(std::views::iota(0U, static_cast<uint32_t>(ctx.queue_family_properties_.size()))))
         {
@@ -989,14 +993,14 @@ inline auto add_transfer_queue(const std::string& queue_name = "transfer", uint3
         }
 
         // Otherwise find graphics queue that supports transfer
-        auto transfer_graphics = std::ranges::find_if(
-            std::views::iota(0U, static_cast<uint32_t>(ctx.queue_family_properties_.size())),
-            [&](uint32_t idx)
-            {
-                const auto& family = ctx.queue_family_properties_[idx];
-                return (family.queueFlags & vk::QueueFlagBits::eTransfer) && 
-                       (family.queueFlags & vk::QueueFlagBits::eGraphics);
-            });
+        auto transfer_graphics =
+            std::ranges::find_if(std::views::iota(0U, static_cast<uint32_t>(ctx.queue_family_properties_.size())),
+                                 [&](uint32_t idx)
+                                 {
+                                     const auto& family = ctx.queue_family_properties_[idx];
+                                     return (family.queueFlags & vk::QueueFlagBits::eTransfer) &&
+                                            (family.queueFlags & vk::QueueFlagBits::eGraphics);
+                                 });
         if (transfer_graphics !=
             std::ranges::end(std::views::iota(0U, static_cast<uint32_t>(ctx.queue_family_properties_.size()))))
         {
@@ -1061,7 +1065,7 @@ inline auto create_logical_device()
             else
             {
                 // Additional queues for existing family
-                auto& existing_info = family_queue_infos[family_index];
+                auto& existing_info       = family_queue_infos[family_index];
                 auto& existing_priorities = family_priorities[family_index];
 
                 existing_info.setQueueCount(existing_info.queueCount + queue_info.queue_count_);
@@ -1093,30 +1097,30 @@ inline auto create_logical_device()
             ctx.validated_features_13_.pNext = nullptr;
             ctx.validated_features_12_.pNext = &ctx.validated_features_13_;
             ctx.validated_features_11_.pNext = &ctx.validated_features_12_;
-            feature_chain = &ctx.validated_features_11_;
+            feature_chain                    = &ctx.validated_features_11_;
         }
         else if (ctx.device_properties_.apiVersion >= VK_API_VERSION_1_2)
         {
             // Chain: features_12 -> features_11 -> nullptr
             ctx.validated_features_12_.pNext = nullptr;
             ctx.validated_features_11_.pNext = &ctx.validated_features_12_;
-            feature_chain = &ctx.validated_features_11_;
+            feature_chain                    = &ctx.validated_features_11_;
         }
         else if (ctx.device_properties_.apiVersion >= VK_API_VERSION_1_1)
         {
             // Chain: features_11 -> nullptr
             ctx.validated_features_11_.pNext = nullptr;
-            feature_chain = &ctx.validated_features_11_;
+            feature_chain                    = &ctx.validated_features_11_;
         }
 
         // Create device
         vk::DeviceCreateInfo device_create_info;
-        device_create_info
-            .setQueueCreateInfos(queue_create_infos)
+        device_create_info.setQueueCreateInfos(queue_create_infos)
             .setEnabledExtensionCount(static_cast<uint32_t>(ctx.device_info_.required_extensions_.size()))
-            .setPpEnabledExtensionNames(ctx.device_info_.required_extensions_.empty() ? nullptr : ctx.device_info_.required_extensions_.data())
+            .setPpEnabledExtensionNames(
+                ctx.device_info_.required_extensions_.empty() ? nullptr : ctx.device_info_.required_extensions_.data())
             .setPEnabledFeatures(&ctx.validated_features_) // Use validated features
-            .setPNext(feature_chain); // Add Vulkan 1.1 features
+            .setPNext(feature_chain);                      // Add Vulkan 1.1 features
         ctx.vk_logical_device_ = ctx.vk_physical_device_.createDevice(device_create_info, nullptr);
 
         // Retrieve queues
@@ -1173,7 +1177,8 @@ inline std::optional<uint32_t> find_queue_family(const CommVkLogicalDeviceContex
 /// @param ctx The logical device context
 /// @param queue_name Name of the queue to find family index for
 /// @return Queue family index if found, std::nullopt otherwise
-inline std::optional<uint32_t> find_queue_family_by_name(const CommVkLogicalDeviceContext& ctx, const std::string& queue_name)
+inline std::optional<uint32_t> find_queue_family_by_name(const CommVkLogicalDeviceContext& ctx,
+                                                         const std::string& queue_name)
 {
     // Search through created queue infos to find the queue family index
     for (const auto& queue_info : ctx.queue_infos_)
@@ -1183,7 +1188,7 @@ inline std::optional<uint32_t> find_queue_family_by_name(const CommVkLogicalDevi
         {
             return queue_info.queue_family_index_;
         }
-        
+
         // Check if it's a multi-queue name (e.g., "graphics_0", "graphics_1")
         if (queue_info.queue_count_ > 1)
         {
@@ -1205,20 +1210,20 @@ inline std::optional<uint32_t> find_queue_family_by_name(const CommVkLogicalDevi
 /// @param queue_flags Required queue flags
 /// @param prefer_dedicated Whether to prefer dedicated queues (default true)
 /// @return Queue family index if found, std::nullopt otherwise
-inline std::optional<uint32_t> find_optimal_queue_family(const CommVkLogicalDeviceContext& ctx, 
-                                                         vk::QueueFlags queue_flags, 
+inline std::optional<uint32_t> find_optimal_queue_family(const CommVkLogicalDeviceContext& ctx,
+                                                         vk::QueueFlags queue_flags,
                                                          bool prefer_dedicated = true)
 {
     std::vector<uint32_t> suitable_families;
     std::vector<uint32_t> created_families; // Families that user actually created queues for
-    
+
     // Collect all created queue family indices
     created_families.reserve(ctx.queue_infos_.size());
     for (const auto& queue_info : ctx.queue_infos_)
     {
         created_families.push_back(queue_info.queue_family_index_);
     }
-    
+
     // Find all suitable families
     for (uint32_t i = 0; i < ctx.queue_family_properties_.size(); i++)
     {
@@ -1231,17 +1236,17 @@ inline std::optional<uint32_t> find_optimal_queue_family(const CommVkLogicalDevi
             }
         }
     }
-    
+
     if (suitable_families.empty())
     {
         return std::nullopt;
     }
-    
+
     if (!prefer_dedicated)
     {
         return suitable_families[0]; // Return first suitable
     }
-    
+
     // Try to find dedicated queue family first
     for (uint32_t family_idx : suitable_families)
     {
@@ -1250,7 +1255,8 @@ inline std::optional<uint32_t> find_optimal_queue_family(const CommVkLogicalDevi
         // For transfer queues, prefer families that only have transfer (and possibly sparse binding)
         if (queue_flags == vk::QueueFlagBits::eTransfer)
         {
-            vk::QueueFlags non_transfer_flags = family_flags & ~(vk::QueueFlagBits::eTransfer | vk::QueueFlagBits::eSparseBinding);
+            vk::QueueFlags non_transfer_flags =
+                family_flags & ~(vk::QueueFlagBits::eTransfer | vk::QueueFlagBits::eSparseBinding);
             if (non_transfer_flags == vk::QueueFlags())
             {
                 return family_idx; // Found dedicated transfer queue
@@ -1259,7 +1265,9 @@ inline std::optional<uint32_t> find_optimal_queue_family(const CommVkLogicalDevi
         // For compute queues, prefer families that only have compute (and possibly transfer/sparse)
         else if (queue_flags == vk::QueueFlagBits::eCompute)
         {
-            vk::QueueFlags non_compute_flags = family_flags & ~(vk::QueueFlagBits::eCompute | vk::QueueFlagBits::eTransfer | vk::QueueFlagBits::eSparseBinding);
+            vk::QueueFlags non_compute_flags =
+                family_flags &
+                ~(vk::QueueFlagBits::eCompute | vk::QueueFlagBits::eTransfer | vk::QueueFlagBits::eSparseBinding);
             if (non_compute_flags == vk::QueueFlags())
             {
                 return family_idx; // Found dedicated compute queue
@@ -1271,16 +1279,17 @@ inline std::optional<uint32_t> find_optimal_queue_family(const CommVkLogicalDevi
             return family_idx; // Graphics queues are typically shared anyway
         }
     }
-    
+
     // If no dedicated queue found, return the first suitable one
     return suitable_families[0];
 }
 
 /// @brief Helper function to get queue info by name
-/// @param ctx The logical device context  
+/// @param ctx The logical device context
 /// @param queue_name Name of the queue
 /// @return Pointer to queue info if found, nullptr otherwise
-inline const CommVkLogicalDeviceContext::QueueInfo* find_queue_info_by_name(const CommVkLogicalDeviceContext& ctx, const std::string& queue_name)
+inline const CommVkLogicalDeviceContext::QueueInfo* find_queue_info_by_name(const CommVkLogicalDeviceContext& ctx,
+                                                                            const std::string& queue_name)
 {
     for (const auto& queue_info : ctx.queue_infos_)
     {
@@ -1289,8 +1298,8 @@ inline const CommVkLogicalDeviceContext::QueueInfo* find_queue_info_by_name(cons
         {
             return &queue_info;
         }
-        
-        // Check if it's a multi-queue name (e.g., "graphics_0", "graphics_1")  
+
+        // Check if it's a multi-queue name (e.g., "graphics_0", "graphics_1")
         if (queue_info.queue_count_ > 1)
         {
             for (uint32_t i = 0; i < queue_info.queue_count_; ++i)
@@ -1312,7 +1321,7 @@ inline const CommVkLogicalDeviceContext::QueueInfo* find_queue_info_by_name(cons
 inline std::unordered_map<std::string, uint32_t> get_all_queue_families(const CommVkLogicalDeviceContext& ctx)
 {
     std::unordered_map<std::string, uint32_t> queue_families;
-    
+
     for (const auto& queue_info : ctx.queue_infos_)
     {
         if (queue_info.queue_count_ == 1)
@@ -1323,12 +1332,12 @@ inline std::unordered_map<std::string, uint32_t> get_all_queue_families(const Co
         {
             for (uint32_t i = 0; i < queue_info.queue_count_; ++i)
             {
-                std::string indexed_name = queue_info.queue_name_ + "_" + std::to_string(i);
+                std::string indexed_name     = queue_info.queue_name_ + "_" + std::to_string(i);
                 queue_families[indexed_name] = queue_info.queue_family_index_;
             }
         }
     }
-    
+
     return queue_families;
 }
 
