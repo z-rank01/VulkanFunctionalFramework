@@ -1,8 +1,8 @@
 {
-  "name": "zrendergraph",
+  "name": "vulkan-functional-framework",
   "version": "0.1.0",
-  "description": "ZRenderGraph 项目",
-  "homepage": "https://github.com/yourusername/zrendergraph",
+  "description": "vulkan 函数式项目",
+  "homepage": "https://github.com/z-rank01/VulkanFunctionalFramework",
   "dependencies": [
     "vulkan",
     "vk-bootstrap",
@@ -38,5 +38,5 @@
       "version>=": "2.9.4"
     }
   ],
-  "builtin-baseline": "efb1e7436979a30c4d3e5ab2375fd8e2e461d541"
+  "builtin-baseline": "f4fc135de213885b8d072203d324976e4aa1f171"
 }
