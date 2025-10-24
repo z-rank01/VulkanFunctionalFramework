@@ -1,29 +1,29 @@
 #pragma once
 
-#include <vulkan/vulkan.h>
+#define VULKAN_HPP_NO_CONSTRUCTORS
+#include <vulkan/vulkan.hpp>
 #include <map>
-#include "utility/logger.h"
 
 struct SVulkanCommandBufferAllocationConfig
 {
-    VkCommandBufferLevel command_buffer_level;
+    vk::CommandBufferLevel command_buffer_level;
     uint32_t command_buffer_count;
 };
 
 class VulkanCommandBufferHelper
 {
 private:
-    VkCommandPool command_pool_;
-    std::map<std::string, VkCommandBuffer> command_buffer_map_;
-    VkDevice device_;
+    vk::CommandPool command_pool_;
+    std::map<std::string, vk::CommandBuffer> command_buffer_map_;
+    vk::Device device_;
 public:
     VulkanCommandBufferHelper();
     ~VulkanCommandBufferHelper();
 
-    VkCommandBuffer GetCommandBuffer(std::string id) const;
-    bool CreateCommandPool(VkDevice device, uint32_t queue_family_index);
+    vk::CommandBuffer GetCommandBuffer(std::string id) const;
+    bool CreateCommandPool(vk::Device device, uint32_t queue_family_index);
     bool AllocateCommandBuffer(const SVulkanCommandBufferAllocationConfig& config, std::string id);
-    bool BeginCommandBufferRecording(std::string id, VkCommandBufferUsageFlags usage_flags);
+    bool BeginCommandBufferRecording(std::string id, vk::CommandBufferUsageFlags usage_flags);
     bool EndCommandBufferRecording(std::string id);
     bool ResetCommandBuffer(std::string id);
 };

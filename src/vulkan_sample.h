@@ -3,8 +3,6 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_vulkan.h>
 #include <VkBootstrap.h>
-#include <vulkan/vulkan.h>
-#include <vulkan/vulkan_core.h>
 
 #include <glm/glm.hpp>
 #include <glm/gtc/constants.hpp>
@@ -19,7 +17,7 @@
 #include "_old/vulkan_shader.h"
 #include "_old/vulkan_synchronization.h"
 #include "_old/vulkan_window.h"
-#include "_templates/common.h"
+#include "_templates/common.hpp"
 #include "_vra/vra.h"
 #include "utility/config_reader.h"
 
@@ -178,15 +176,15 @@ private:
     std::vector<vra::ResourceId> uniform_buffer_id_;
 
     // vulkan native members
-    VkBuffer local_buffer_;
-    VkBuffer staging_buffer_;
-    VkBuffer uniform_buffer_;
-    VkDescriptorPool descriptor_pool_;
-    VkDescriptorSetLayout descriptor_set_layout_;
-    VkDescriptorSet descriptor_set_;
-    VkVertexInputBindingDescription vertex_input_binding_description_;
-    VkVertexInputAttributeDescription vertex_input_attribute_position_;
-    VkVertexInputAttributeDescription vertex_input_attribute_color_;
+    vk::Buffer local_buffer_;
+    vk::Buffer staging_buffer_;
+    vk::Buffer uniform_buffer_;
+    vk::DescriptorPool descriptor_pool_;
+    vk::DescriptorSetLayout descriptor_set_layout_;
+    std::vector<vk::DescriptorSet> descriptor_sets_;
+    vk::VertexInputBindingDescription vertex_input_binding_description_;
+    vk::VertexInputAttributeDescription vertex_input_attribute_position_;
+    vk::VertexInputAttributeDescription vertex_input_attribute_color_;
 
     // vulkan helper members
     std::unique_ptr<VulkanSDLWindowHelper> vk_window_helper_;
@@ -209,6 +207,7 @@ private:
     bool camera_pan_mode_ = false; // 相机平移模式标志（中键）
     float orbit_distance_ = 0.0F;  // 轨道旋转时与中心的距离
 
+    void initialize_vulkan_hpp();
     void initialize_sdl();
     void initialize_vulkan();
     void initialize_camera();
@@ -228,7 +227,7 @@ private:
     bool create_vma_vra_objects();
     void create_drawcall_list_buffer();
     bool create_uniform_buffers();
-    
+
     bool allocate_per_frame_command_buffer();
     bool create_synchronization_objects();
     // ------------------------------------
@@ -247,12 +246,12 @@ private:
     void focus_on_object(const glm::vec3& object_position, float target_distance);
 
     // --- Common Templates Test ---
-    VkInstance comm_vk_instance_;
-    VkPhysicalDevice comm_vk_physical_device_;
-    VkDevice comm_vk_logical_device_;
-    VkQueue comm_vk_graphics_queue_;
-    VkQueue comm_vk_transfer_queue_;
-    VkSwapchainKHR comm_vk_swapchain_;
+    vk::Instance comm_vk_instance_;
+    vk::PhysicalDevice comm_vk_physical_device_;
+    vk::Device comm_vk_logical_device_;
+    vk::Queue comm_vk_graphics_queue_;
+    vk::Queue comm_vk_transfer_queue_;
+    vk::SwapchainKHR comm_vk_swapchain_;
     templates::common::CommVkInstanceContext comm_vk_instance_context_;
     templates::common::CommVkPhysicalDeviceContext comm_vk_physical_device_context_;
     templates::common::CommVkLogicalDeviceContext comm_vk_logical_device_context_;
@@ -263,10 +262,10 @@ private:
     std::vector<uint32_t> indices_;
     std::vector<gltf::Vertex> vertices_;
 
-    VkBuffer test_local_buffer_;
-    VkBuffer test_staging_buffer_;
-    VkVertexInputBindingDescription test_vertex_input_binding_description_;
-    std::vector<VkVertexInputAttributeDescription> test_vertex_input_attributes_;
+    vk::Buffer test_local_buffer_;
+    vk::Buffer test_staging_buffer_;
+    vk::VertexInputBindingDescription test_vertex_input_binding_description_;
+    std::vector<vk::VertexInputAttributeDescription> test_vertex_input_attributes_;
     VmaAllocation test_local_buffer_allocation_;
     VmaAllocation test_staging_buffer_allocation_;
     VmaAllocationInfo test_local_buffer_allocation_info_;
@@ -280,14 +279,12 @@ private:
     std::map<vra::BatchId, vra::VraDataBatcher::VraBatchHandle> test_local_host_batch_handle_;
     std::map<vra::BatchId, vra::VraDataBatcher::VraBatchHandle> test_uniform_batch_handle_;
 
-    
-
     // 深度资源相关成员
-    VkImage depth_image_          = VK_NULL_HANDLE;
-    VkDeviceMemory depth_memory_  = VK_NULL_HANDLE;
-    VkImageView depth_image_view_ = VK_NULL_HANDLE;
-    VkFormat depth_format_        = VK_FORMAT_D32_SFLOAT;
+    vk::Image depth_image_          = VK_NULL_HANDLE;
+    vk::DeviceMemory depth_memory_  = VK_NULL_HANDLE;
+    vk::ImageView depth_image_view_ = VK_NULL_HANDLE;
+    vk::Format depth_format_        = vk::Format::eD32Sfloat;
 
     // 创建深度资源
-    VkFormat find_supported_depth_format();
+    vk::Format find_supported_depth_format();
 };
