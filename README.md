@@ -1,65 +1,43 @@
-# ZRenderGraph
-Personal customized render graph targeting on different gfx APIs
+# Vulkan Functional Framework
+面向不同图形 API、以函数式编程（Functional Programming）风格构建的个人定制 Vulkan 框架
+
+# Usage（使用）
+## 配置 CMakePresets.json
+为了编译源码，需要修改 CMakePresets.json 中的多处路径。
+1. 选择一个构建链（build chain），例如名称为 `windows-msvc` 或 `linux-clang`
+2. 在 `cacheVariables` 部分修改编译器路径
+    - `CMAKE_C_COMPILER`
+    - `CMAKE_CXX_COMPILER`
+    - `CMAKE_RC_COMPILER`
+    - ...
+
+## 配置 app_config.json
+
+## Clangd 相关
+如果需要使用 clangd 作为（此处补充说明：例如语言服务器/代码补全等）
+
+## Vulkan SDK
+要使用该框架，需要下载并安装 Vulkan SDK，并将其加入系统环境变量。
+
+---
+
+# Vulkan Functional Framework
+Personal customized vulkan framework targeting on different gfx APIs in a style of **Functional Progamming**
 
 # Usage
-...
+## Config CMakePresets.json
+In order to build source files, one need to modify multiple path inside CMakePresets.json. 
+1. Target one of the build chain, like name `windows-msvc` or `linux-clang`
+2. Modify the path to the compiler in the part of `cacheVariables`
+    - `CMAKE_C_COMPILER`
+    - `CMAKE_CXX_COMPILER`
+    - `CMAKE_RC_COMPILER`
+    - ...
 
-# Knowledge
-...
+## Config app_config.json
 
-## Architecture
+## Clangd Specified
+If one want to use clangd as 
 
-### Denpendency Graph
-
-> A high level representation and controller of render passes and resources.
-
-#### Structure in *FrostBite*
-
-##### Setup Phase
-
-General Purpose
-1. Define render / compute passes
-2. Define **inputs** and **outputs** resources for each pass
-3. Code flow is similar to immediate mode rendering
-
-Details
-1. Render passes must declare all resources usage
-    - Read
-    - Write
-    - Create
-2. External permanent resources are **imported** to Frame Graph
-    - History buffer for TAA
-    - Backbuffer
-    - etc.
-
-Example for creation
-```C++
-RenderPass::RenderPasss(FrameGraphBuilder& builder)
-{
-    FrameGraphTextureDesc desc;
-    desc.width = 1280;
-    desc.height = 720;
-    desc.format = RenderFormat_D32_FLOAT;
-    desc.initialState = FrameGraphTextureDesc::Clear;
-    m_renderTarget = builder.createTexure(desc);
-}
-```
-
-Example for Read/Write
-```C++
-RenderPass::RenderPasss(
-    FrameGraphBuilder& builder
-    FrameGraphResource input, 
-    FrameGraphMutableResource renderTarget
-    )
-{
-    // Declare resource denpendencies
-    m_input = builder.read(input, readFlags);
-    m_renderTarget = builder.write(renderTarget, writeFlags);
-}
-```
-
-
-### Resource System
-
-> A general module respond for resource allocation and memory aliasing.
+## Vulkan SDK
+To use this framework, one need to download and install vulkan sdk with system variables added.
