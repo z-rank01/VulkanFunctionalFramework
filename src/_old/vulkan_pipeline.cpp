@@ -1,4 +1,5 @@
 #include "vulkan_pipeline.h"
+#include "utility/logger.h"
 
 VulkanPipelineHelper::~VulkanPipelineHelper()
 {
@@ -14,133 +15,143 @@ VulkanPipelineHelper::~VulkanPipelineHelper()
     }
 }
 
-bool VulkanPipelineHelper::CreatePipeline(VkDevice device)
+bool VulkanPipelineHelper::CreatePipeline(vk::Device device)
 {
     device_ = device;
     
     // input assembly
-    VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
-    inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-    inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-    inputAssembly.primitiveRestartEnable = VK_FALSE;
+    vk::PipelineInputAssemblyStateCreateInfo inputAssembly
+    {
+        .topology = vk::PrimitiveTopology::eTriangleList,
+        .primitiveRestartEnable = vk::False
+    };
 
     // vertex input
-    VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
-    vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-    vertexInputInfo.vertexBindingDescriptionCount = 1;
-    vertexInputInfo.pVertexBindingDescriptions = &config_.vertex_input_binding_description;
-    vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(config_.vertex_input_attribute_descriptions.size());
-    vertexInputInfo.pVertexAttributeDescriptions = config_.vertex_input_attribute_descriptions.data();
+    vk::PipelineVertexInputStateCreateInfo vertexInputInfo
+    {
+        .vertexBindingDescriptionCount = 1,
+        .pVertexBindingDescriptions = &config_.vertex_input_binding_description,
+        .vertexAttributeDescriptionCount = static_cast<uint32_t>(config_.vertex_input_attribute_descriptions.size()),
+        .pVertexAttributeDescriptions = config_.vertex_input_attribute_descriptions.data()
+    };
 
     // viewport and scissor
-    VkViewport viewport{};
-    viewport.x = 0.0f;
-    viewport.y = 0.0f;
-    viewport.width = (float)config_.swap_chain_extent.width;
-    viewport.height = (float)config_.swap_chain_extent.height;
-    viewport.minDepth = 0.0f;
-    viewport.maxDepth = 1.0f;
+    vk::Viewport viewport
+    {
+        .x = 0.0F,
+        .y = 0.0F,
+        .width = static_cast<float>(config_.swap_chain_extent.width),
+        .height = static_cast<float>(config_.swap_chain_extent.height),
+        .minDepth = 0.0F,
+        .maxDepth = 1.0F
+    };
 
-    VkRect2D scissor{};
-    scissor.offset = { 0, 0 };
-    scissor.extent = config_.swap_chain_extent;
+    vk::Rect2D scissor
+    {
+        .offset = { .x=0, .y=0 },
+        .extent = config_.swap_chain_extent
+    };
 
-    VkPipelineViewportStateCreateInfo viewportState{};
-    viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-    viewportState.viewportCount = 1;
-    viewportState.pViewports = &viewport;
-    viewportState.scissorCount = 1;
-    viewportState.pScissors = &scissor;
+    vk::PipelineViewportStateCreateInfo viewportState
+    {
+        .viewportCount = 1,
+        .pViewports = &viewport,
+        .scissorCount = 1,
+        .pScissors = &scissor
+    };
 
     // rasterizer
-    VkPipelineRasterizationStateCreateInfo rasterizer{};
-    rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-    rasterizer.depthClampEnable = VK_FALSE;
-    rasterizer.rasterizerDiscardEnable = VK_FALSE; // Disable if you want to draw
-    rasterizer.polygonMode = VK_POLYGON_MODE_FILL; // Fill the polygon
-    rasterizer.lineWidth = 1.0f;
-    rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
-    // 如果模型依然颠倒，可以尝试更改这个值
-    rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE; // 或者尝试 VK_FRONT_FACE_CLOCKWISE
-    rasterizer.depthBiasEnable = VK_FALSE;
-    rasterizer.depthBiasConstantFactor = 0.0f; // Optional
-    rasterizer.depthBiasClamp = 0.0f; // Optional
-    rasterizer.depthBiasSlopeFactor = 0.0f; // Optional
+    vk::PipelineRasterizationStateCreateInfo rasterizer
+    {
+        .depthClampEnable = vk::False,                  // Disable depth clamping
+        .rasterizerDiscardEnable = vk::False,           // Disable if you want to draw
+        .polygonMode = vk::PolygonMode::eFill,          // Fill the polygon
+        .cullMode = vk::CullModeFlagBits::eBack,        // Cull back faces
+        .frontFace = vk::FrontFace::eCounterClockwise,  // 或者尝试 VK_FRONT_FACE_CLOCKWISE
+        .depthBiasEnable = vk::False,
+        .lineWidth = 1.0F
+    };
 
     // multisampling
-    VkPipelineMultisampleStateCreateInfo multisampling{};
-    multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-    multisampling.sampleShadingEnable = VK_FALSE;
-    multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-    multisampling.minSampleShading = 1.0f; // Optional
-    multisampling.pSampleMask = nullptr; // Optional
-    multisampling.alphaToCoverageEnable = VK_FALSE; // Optional
-    multisampling.alphaToOneEnable = VK_FALSE; // Optional
+    vk::PipelineMultisampleStateCreateInfo multisampling
+    {
+        .rasterizationSamples = vk::SampleCountFlagBits::e1,    // 1 sample per pixel
+        .sampleShadingEnable = vk::False, 
+        .minSampleShading = 1.0F,                               // Optional
+        .pSampleMask = nullptr,                                 // Optional
+        .alphaToCoverageEnable = vk::False,                     // Optional
+        .alphaToOneEnable = vk::False                           // Optional
+    };
 
     // depth and stencil testing
-    VkPipelineDepthStencilStateCreateInfo depthStencil{};
-    depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-    depthStencil.depthTestEnable = VK_TRUE;           // 启用深度测试
-    depthStencil.depthWriteEnable = VK_TRUE;          // 启用深度写入
-    depthStencil.depthCompareOp = VK_COMPARE_OP_LESS; // 使用小于比较操作（标准深度测试）
-    depthStencil.depthBoundsTestEnable = VK_FALSE;    // 禁用深度边界测试
-    depthStencil.minDepthBounds = 0.0f;               // 可选
-    depthStencil.maxDepthBounds = 1.0f;               // 可选
-    depthStencil.stencilTestEnable = VK_FALSE;        // 禁用模板测试
-    depthStencil.front = {};                          // 可选，前面的模板操作
-    depthStencil.back = {};                           // 可选，背面的模板操作
-
+    vk::PipelineDepthStencilStateCreateInfo depthStencil
+    {
+        .depthTestEnable = vk::True,
+        .depthWriteEnable = vk::True,
+        .depthCompareOp = vk::CompareOp::eLess,
+        .depthBoundsTestEnable = vk::False,
+        .stencilTestEnable = vk::False,
+        .front = {},
+        .back = {},
+        .minDepthBounds = 0.0F,
+        .maxDepthBounds = 1.0F,
+    };
+    
+    
     // color blending
-    VkPipelineColorBlendAttachmentState colorBlendAttachment{};
-    colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-    colorBlendAttachment.blendEnable = VK_FALSE;
-    colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE; // Optional
-    colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ZERO; // Optional
-    colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD; // Optional
-    colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE; // Optional
-    colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO; // Optional
-    colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD; // Optional
+    vk::PipelineColorBlendAttachmentState colorBlendAttachment
+    {
+        .blendEnable = vk::False,
+        .srcColorBlendFactor = vk::BlendFactor::eOne,
+        .dstColorBlendFactor = vk::BlendFactor::eZero,
+        .colorBlendOp = vk::BlendOp::eAdd,
+        .srcAlphaBlendFactor = vk::BlendFactor::eOne,
+        .dstAlphaBlendFactor = vk::BlendFactor::eZero,
+        .alphaBlendOp = vk::BlendOp::eAdd, 
+        .colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | 
+                         vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA,
+    };
 
-    VkPipelineColorBlendStateCreateInfo colorBlending{};
-    colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-    colorBlending.logicOpEnable = VK_FALSE;
-    colorBlending.logicOp = VK_LOGIC_OP_COPY; // Optional
-    colorBlending.attachmentCount = 1;
-    colorBlending.pAttachments = &colorBlendAttachment;
-    colorBlending.blendConstants[0] = 0.0f; // Optional
-    colorBlending.blendConstants[1] = 0.0f; // Optional
-    colorBlending.blendConstants[2] = 0.0f; // Optional
-    colorBlending.blendConstants[3] = 0.0f; // Optional
+    vk::PipelineColorBlendStateCreateInfo colorBlending
+    {
+        .logicOpEnable = vk::False,
+        .logicOp = vk::LogicOp::eCopy,
+        .attachmentCount = 1,
+        .pAttachments = &colorBlendAttachment,
+        .blendConstants = std::array<float, 4>{ 0.0F, 0.0F, 0.0F, 0.0F }
+    };
 
     // pipeline layout
-    VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
-    pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pipelineLayoutInfo.setLayoutCount = static_cast<uint32_t>(config_.descriptor_set_layouts.size());
-    pipelineLayoutInfo.pSetLayouts = config_.descriptor_set_layouts.data();
-    pipelineLayoutInfo.pushConstantRangeCount = 0; // Optional
-    pipelineLayoutInfo.pPushConstantRanges = nullptr; // Optional
+    vk::PipelineLayoutCreateInfo pipelineLayoutInfo
+    {
+        .setLayoutCount = static_cast<uint32_t>(config_.descriptor_set_layouts.size()),
+        .pSetLayouts = config_.descriptor_set_layouts.data(),
+        .pushConstantRangeCount = 0,
+        .pPushConstantRanges = nullptr
+    };
 
-    if (!Logger::LogWithVkResult(vkCreatePipelineLayout(device_, &pipelineLayoutInfo, nullptr, &pipeline_layout_), 
-        "Failed to create pipeline layout", 
-        "Created pipeline layout successfully"))
+    pipeline_layout_ = device_.createPipelineLayout(pipelineLayoutInfo);
+    if (!pipeline_layout_)
     {
         return false;
     }
 
-    VkPipelineShaderStageCreateInfo shader_stages[2];
+    // shader stages
+    std::array<vk::PipelineShaderStageCreateInfo, 2> shader_stages;
+    
     // 获取顶点着色器模块
     auto it_vert = config_.shader_module_map.find(EShaderType::kVertexShader);
     if (it_vert == config_.shader_module_map.end()) {
         Logger::LogError("Vertex shader module not found in pipeline config map.");
         return false;
     }
-    shader_stages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    shader_stages[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
-    shader_stages[0].module = it_vert->second;
-    shader_stages[0].pName = "main";
-    shader_stages[0].pSpecializationInfo = nullptr;
-    shader_stages[0].pNext = nullptr;
-    shader_stages[0].flags = 0;
+    shader_stages[0] = vk::PipelineShaderStageCreateInfo
+    {
+        .stage = vk::ShaderStageFlagBits::eVertex,
+        .module = it_vert->second,
+        .pName = "main",
+        .pSpecializationInfo = nullptr
+    };
 
     // 获取片段着色器模块
     auto it_frag = config_.shader_module_map.find(EShaderType::kFragmentShader);
@@ -148,48 +159,54 @@ bool VulkanPipelineHelper::CreatePipeline(VkDevice device)
         Logger::LogError("Fragment shader module not found in pipeline config map.");
         return false;
     }
-    shader_stages[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    shader_stages[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-    shader_stages[1].module = it_frag->second;
-    shader_stages[1].pName = "main";
-    shader_stages[1].pSpecializationInfo = nullptr;
-    shader_stages[1].pNext = nullptr;
-    shader_stages[1].flags = 0;
-
-    std::vector<VkDynamicState> dynamicStates =
+    shader_stages[1] = vk::PipelineShaderStageCreateInfo
     {
-        VK_DYNAMIC_STATE_VIEWPORT,
-        VK_DYNAMIC_STATE_SCISSOR
+        .stage = vk::ShaderStageFlagBits::eFragment,
+        .module = it_frag->second,
+        .pName = "main",
+        .pSpecializationInfo = nullptr
     };
 
-    VkPipelineDynamicStateCreateInfo dynamicState{};
-    dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
-    dynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
-    dynamicState.pDynamicStates = dynamicStates.data();
+    // dynamic state
+    std::array<vk::DynamicState, 2> dynamicStates =
+    {
+        vk::DynamicState::eViewport,
+        vk::DynamicState::eScissor
+    };
 
-    // pipeline create info
-    VkGraphicsPipelineCreateInfo pipelineInfo{};
-    pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-    pipelineInfo.stageCount = static_cast<uint32_t>(std::size(shader_stages));
-    pipelineInfo.pStages = shader_stages;
-    pipelineInfo.pVertexInputState = &vertexInputInfo;
-    pipelineInfo.pInputAssemblyState = &inputAssembly;
-    pipelineInfo.pViewportState = &viewportState;
-    pipelineInfo.pRasterizationState = &rasterizer;
-    pipelineInfo.pMultisampleState = &multisampling;
-    pipelineInfo.pDepthStencilState = &depthStencil; // 将深度测试状态添加到管线中
-    pipelineInfo.pColorBlendState = &colorBlending;
-    pipelineInfo.pDynamicState = &dynamicState;
-    pipelineInfo.layout = pipeline_layout_;
-    pipelineInfo.renderPass = config_.renderpass;
-    pipelineInfo.subpass = 0;
-    pipelineInfo.basePipelineHandle = VK_NULL_HANDLE; // Optional
-    pipelineInfo.basePipelineIndex = -1; // Optional
-    pipelineInfo.pNext = nullptr; // Optional
-    pipelineInfo.flags = 0; // Optional
+    vk::PipelineDynamicStateCreateInfo dynamicState
+    {
+        .dynamicStateCount = static_cast<uint32_t>(dynamicStates.size()),
+        .pDynamicStates = dynamicStates.data()
+    };
 
+    // graphics pipeline create info
+    vk::GraphicsPipelineCreateInfo pipelineInfo
+    {
+        .stageCount = static_cast<uint32_t>(shader_stages.size()),
+        .pStages = shader_stages.data(),
+        .pVertexInputState = &vertexInputInfo,
+        .pInputAssemblyState = &inputAssembly,
+        .pViewportState = &viewportState,
+        .pRasterizationState = &rasterizer,
+        .pMultisampleState = &multisampling,
+        .pDepthStencilState = &depthStencil,
+        .pColorBlendState = &colorBlending,
+        .pDynamicState = &dynamicState,
+        .layout = pipeline_layout_,
+        .renderPass = config_.renderpass,
+        .subpass = 0,
+        .basePipelineHandle = VK_NULL_HANDLE,
+        .basePipelineIndex = -1
+    };
 
-    return Logger::LogWithVkResult(vkCreateGraphicsPipelines(device_, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipeline_), 
-        "Failed to create graphics pipeline", 
-        "Succeeded in creating graphics pipeline");
+    auto pipelineResult = device_.createGraphicsPipeline(VK_NULL_HANDLE, pipelineInfo);
+    if (!(pipelineResult.result == vk::Result::eSuccess)) 
+    {
+        Logger::LogError("Failed to create graphics pipeline");
+        return false;
+    }
+    pipeline_ = pipelineResult.value;
+    
+    return true;
 }

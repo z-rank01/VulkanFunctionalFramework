@@ -1,37 +1,35 @@
 #include "vulkan_synchronization.h"
+#include "utility/logger.h"
+
 
 VulkanSynchronizationHelper::~VulkanSynchronizationHelper()
 {
     for (auto& semaphore : semaphores_)
     {
-        vkDestroySemaphore(device_, semaphore.second, nullptr);
+        device_.destroySemaphore(semaphore.second);
     }
     semaphores_.clear();
 
     for (auto& fence : fences_)
     {
-        vkDestroyFence(device_, fence.second, nullptr);
+        device_.destroyFence(fence.second);
     }
     fences_.clear();
 }
 
 bool VulkanSynchronizationHelper::CreateVkSemaphore(std::string id)
 {
-    VkSemaphoreCreateInfo semaphore_info{};
-    semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-    semaphore_info.flags = 0;
+    vk::SemaphoreCreateInfo semaphore_info{};
 
     if (semaphores_.find(id) != semaphores_.end())
     {
         Logger::LogError("Semaphore with ID " + id + " already exists.");
         return semaphores_[id];
     }
-    VkSemaphore semaphore;
-    if (!Logger::LogWithVkResult(
-        vkCreateSemaphore(device_, &semaphore_info, nullptr, &semaphore),
-        "Failed to create semaphore " + id,
-        "Succeeded in creating semaphore " + id))
+    vk::Semaphore semaphore = device_.createSemaphore(semaphore_info);
+    if (!semaphore)
     {
+        Logger::LogError("Failed to create semaphore " + id);
         return false;
     }
     semaphores_[id] = semaphore;
@@ -40,21 +38,20 @@ bool VulkanSynchronizationHelper::CreateVkSemaphore(std::string id)
 
 bool VulkanSynchronizationHelper::CreateFence(std::string id)
 {
-    VkFenceCreateInfo fence_info{};
-    fence_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-    fence_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+    vk::FenceCreateInfo fence_info
+    {
+        .flags = vk::FenceCreateFlagBits::eSignaled
+    };
 
     if (fences_.find(id) != fences_.end())
     {
         Logger::LogError("Fence with ID " + id + " already exists.");
         return fences_[id];
     }
-    VkFence fence;
-    if (!Logger::LogWithVkResult(
-        vkCreateFence(device_, &fence_info, nullptr, &fence),
-        "Failed to create fence " + id,
-        "Succeeded in creating fence " + id))
+    vk::Fence fence = device_.createFence(fence_info);
+    if (!fence)
     {
+        Logger::LogError("Failed to create fence " + id);
         return false;
     }
     fences_[id] = fence;
@@ -63,19 +60,27 @@ bool VulkanSynchronizationHelper::CreateFence(std::string id)
 
 bool VulkanSynchronizationHelper::WaitForFence(std::string id)
 {
-    return Logger::LogWithVkResult(vkWaitForFences(device_, 1, &fences_[id], VK_TRUE, UINT64_MAX), 
-        "Failed to wait for fence " + id,
-        "Succeeded in waiting for fence " + id);
+    if (device_.waitForFences(1, &fences_[id], VK_TRUE, UINT64_MAX) != vk::Result::eSuccess)
+    {
+        Logger::LogError("Failed to wait for fence " + id);
+        return false;
+    }
+    Logger::LogInfo("Successfully waited for fence " + id);
+    return true;
 }
 
 bool VulkanSynchronizationHelper::ResetFence(std::string id)
 {
-    return Logger::LogWithVkResult(vkResetFences(device_, 1, &fences_[id]),
-        "Failed to reset fence " + id,
-        "Succeeded in resetting fence " + id);
+    if (device_.resetFences(1, &fences_[id]) != vk::Result::eSuccess)
+    {
+        Logger::LogError("Failed to reset fence " + id);
+        return false;
+    }
+    Logger::LogInfo("Succeeded in resetting fence " + id);
+    return true;
 }
 
-VkSemaphore VulkanSynchronizationHelper::GetSemaphore(std::string id) const
+vk::Semaphore VulkanSynchronizationHelper::GetSemaphore(std::string id) const
 {
     if (semaphores_.find(id) != semaphores_.end())
     {
@@ -84,7 +89,7 @@ VkSemaphore VulkanSynchronizationHelper::GetSemaphore(std::string id) const
     return VK_NULL_HANDLE;
 }
 
-VkFence VulkanSynchronizationHelper::GetFence(std::string id) const
+vk::Fence VulkanSynchronizationHelper::GetFence(std::string id) const
 {
     if (fences_.find(id) != fences_.end())
     {

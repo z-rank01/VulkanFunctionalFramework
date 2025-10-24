@@ -1,4 +1,5 @@
 #include "vulkan_commandbuffer.h"
+#include "utility/logger.h"
 
 VulkanCommandBufferHelper::VulkanCommandBufferHelper()
 {
@@ -9,19 +10,19 @@ VulkanCommandBufferHelper::~VulkanCommandBufferHelper()
     // destroy command buffers
     for (auto command_buffer : command_buffer_map_)
     {
-        vkFreeCommandBuffers(device_, command_pool_, 1, &command_buffer.second);
+        device_.freeCommandBuffers(command_pool_, 1, &command_buffer.second);
     }
     command_buffer_map_.clear();
 
     // destroy command pool
     if (command_pool_ != VK_NULL_HANDLE)
     {
-        vkDestroyCommandPool(device_, command_pool_, nullptr);
+        device_.destroyCommandPool(command_pool_);
         command_pool_ = VK_NULL_HANDLE;
     }
 }
 
-VkCommandBuffer VulkanCommandBufferHelper::GetCommandBuffer(std::string id) const
+vk::CommandBuffer VulkanCommandBufferHelper::GetCommandBuffer(std::string id) const
 {
     if (command_buffer_map_.find(id) != command_buffer_map_.end())
     {
@@ -30,20 +31,24 @@ VkCommandBuffer VulkanCommandBufferHelper::GetCommandBuffer(std::string id) cons
     return VK_NULL_HANDLE;
 }
 
-bool VulkanCommandBufferHelper::CreateCommandPool(VkDevice device, uint32_t queue_family_index)
+bool VulkanCommandBufferHelper::CreateCommandPool(vk::Device device, uint32_t queue_family_index)
 {
     device_ = device;
 
     // create command pool
-    VkCommandPoolCreateInfo pool_info{};
-    pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-    pool_info.queueFamilyIndex = queue_family_index;
-    pool_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+    vk::CommandPoolCreateInfo pool_info
+    {
+        .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
+        .queueFamilyIndex = queue_family_index,
+    };
 
-    return Logger::LogWithVkResult(
-        vkCreateCommandPool(device_, &pool_info, nullptr, &command_pool_),
-        "Failed to create command pool",
-        "Succeeded in creating command pool");
+    if (device_.createCommandPool(&pool_info, nullptr, &command_pool_) != vk::Result::eSuccess)
+    {
+        Logger::LogError("Failed to create command pool");
+        return false;
+    }
+    Logger::LogInfo("Command pool created successfully");
+    return true;
 }
 
 bool VulkanCommandBufferHelper::AllocateCommandBuffer(const SVulkanCommandBufferAllocationConfig& config, std::string id)
@@ -56,52 +61,53 @@ bool VulkanCommandBufferHelper::AllocateCommandBuffer(const SVulkanCommandBuffer
     }
 
     // allocate command buffer
-    VkCommandBufferAllocateInfo alloc_info{};
-    alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    alloc_info.commandPool = command_pool_;
-    alloc_info.level = config.command_buffer_level;
-    alloc_info.commandBufferCount = config.command_buffer_count;
-
-    VkCommandBuffer command_buffer;
-    if (!Logger::LogWithVkResult(
-        vkAllocateCommandBuffers(device_, &alloc_info, &command_buffer),
-        "Failed to allocate command buffer",
-        "Succeeded in allocating command buffer"))
+    vk::CommandBufferAllocateInfo alloc_info
     {
+        .commandPool = command_pool_,
+        .level = config.command_buffer_level,
+        .commandBufferCount = config.command_buffer_count
+    };
+
+    vk::CommandBuffer command_buffer;
+    if (device_.allocateCommandBuffers(&alloc_info, &command_buffer) != vk::Result::eSuccess)
+    {
+        Logger::LogError("Failed to allocate command buffer " + id);
         return false;
     }
+    Logger::LogInfo("Command buffer " + id + " allocated successfully");
     command_buffer_map_[id] = command_buffer;
     return true;
 }
 
-bool VulkanCommandBufferHelper::BeginCommandBufferRecording(std::string id, VkCommandBufferUsageFlags usage_flags)
+bool VulkanCommandBufferHelper::BeginCommandBufferRecording(std::string id, vk::CommandBufferUsageFlags usage_flags)
 {
     // begin command buffer recording
-    VkCommandBufferBeginInfo begin_info{};
-    begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    begin_info.flags = usage_flags;
-    begin_info.pInheritanceInfo = nullptr;
+    vk::CommandBufferBeginInfo begin_info
+    {
+        .flags = usage_flags, 
+        .pInheritanceInfo = nullptr
+    };
 
-    return Logger::LogWithVkResult(
-        vkBeginCommandBuffer(command_buffer_map_.at(id), &begin_info),
-        "Failed to begin command buffer recording",
-        "Succeeded in beginning command buffer recording");
+    if (command_buffer_map_[id].begin(&begin_info) != vk::Result::eSuccess)
+    {
+        Logger::LogInfo("Failed to begin command buffer recording");
+        return false;
+    }
+    Logger::LogInfo("Succeeded in beginning command buffer recording");
+    return true;
 }
 
 bool VulkanCommandBufferHelper::EndCommandBufferRecording(std::string id)
 {
-    // end command buffer recording
-    return Logger::LogWithVkResult(
-        vkEndCommandBuffer(command_buffer_map_.at(id)),
-        "Failed to end command buffer recording",
-        "Succeeded in ending command buffer recording");
+    command_buffer_map_[id].end();
+    Logger::LogInfo("Succeeded in ending command buffer recording");
+    return true;
 }
 
 bool VulkanCommandBufferHelper::ResetCommandBuffer(std::string id)
 {
     // reset command buffer
-    return Logger::LogWithVkResult(
-        vkResetCommandBuffer(command_buffer_map_.at(id), 0),
-        "Failed to reset command buffer",
-        "Succeeded in resetting command buffer");
+    command_buffer_map_.at(id).reset();
+    Logger::LogInfo("Succeeded in resetting command buffer");
+    return true;
 }

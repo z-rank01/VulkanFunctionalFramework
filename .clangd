@@ -124,71 +124,20 @@ Diagnostics:
       # Core Guidelines
       cppcoreguidelines-special-member-functions.AllowSoleDefaultDtor: true
       cppcoreguidelines-special-member-functions.AllowMissingMoveFunctions: true
-  
-
-# 头文件过滤（排除第三方库）
-HeaderFilterRegex: '^(?!.*(build|external|third_party|thirdparty|3rdparty|vendor|deps|dependencies)).*$'
-
-  
-# 头文件未包含检测
-MissingIncludes: None
 
 # 代码完成设定
 Completion:
   AllScopes: true
-  
-# 头文件包含路径
-InlayHints:
-  Enabled: true
-  ParameterNames: true
-  DeducedTypes: true
-  Designators: true
-
-# 启用代码操作功能
-CodeActions:
-  # 启用自动修复功能
-  Enabled: true
-  # 启用 include 建议
-  IncludeInsertion: true
+  HeaderInsertion: Never
 
 # 索引设置
 Index:
   Background: Build
   StandardLibrary: Yes
-  # 启用符号索引以改善 include 建议
-  EnableReferences: true
 
-# 启用自动修复和重构
-Features:
-  # 启用快速修复
-  QuickFix: true
-  # 启用重构操作
-  Refactor: true
-  # 启用代码操作
-  CodeAction: true
-
-# 语义高亮
-SemanticHighlighting: true
-
-# 符号搜索和索引
-SymbolIndex:
-  # 启用符号索引
-  Background: true
-  # 包含标准库符号
-  StandardLibrary: true
 
 # 悬停信息
 Hover:
   ShowAKA: true
   # 显示更多详细信息
-  ShowDocumentation: true
 
-# 自动补全设置
-Completion:
-  AllScopes: true
-  # 启用头文件补全
-  IncludeHeaders: true
-  # 启用符号补全
-  Symbols: true
-  # 限制补全结果数量以提高性能
-  Limit: 100

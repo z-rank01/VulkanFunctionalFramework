@@ -1,5 +1,6 @@
 add_library(template STATIC
     common.h
+    common.hpp
     common.cpp
 )
 
