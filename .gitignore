@@ -6,6 +6,9 @@
 # visual studio 缓存
 /.vs/
 
+# idea 缓存
+/.idea/
+
 # clangd 缓存
 /.cache/
 
