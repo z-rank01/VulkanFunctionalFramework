@@ -3,6 +3,9 @@
 /out/
 /bin/
 
+# config 文件夹
+/config/
+
 # visual studio 缓存
 /.vs/
 
