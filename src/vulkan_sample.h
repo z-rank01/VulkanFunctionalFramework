@@ -1,14 +1,15 @@
 #pragma once
 
-#include <SDL3/SDL.h>
-#include <SDL3/SDL_vulkan.h>
 #include <VkBootstrap.h>
 
 #include <glm/glm.hpp>
 #include <glm/gtc/constants.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <memory>
+#include <unordered_set>
 
+#include "platform/window.h"
+#include "platform/sdl_window.h" // For default implementation
 #include "_gltf/gltf_data.h"
 #include "_old/vulkan_commandbuffer.h"
 #include "_old/vulkan_framebuffer.h"
@@ -176,6 +177,7 @@ private:
     std::vector<vra::ResourceId> uniform_buffer_id_;
 
     // vulkan native members
+    VkSurfaceKHR surface_ = VK_NULL_HANDLE;
     vk::Buffer local_buffer_;
     vk::Buffer staging_buffer_;
     vk::Buffer uniform_buffer_;
@@ -187,7 +189,7 @@ private:
     vk::VertexInputAttributeDescription vertex_input_attribute_color_;
 
     // vulkan helper members
-    std::unique_ptr<VulkanSDLWindowHelper> vk_window_helper_;
+    std::unique_ptr<platform::IWindow> window_;
     std::unique_ptr<VulkanShaderHelper> vk_shader_helper_;
     std::unique_ptr<VulkanRenderpassHelper> vk_renderpass_helper_;
     std::unique_ptr<VulkanPipelineHelper> vk_pipeline_helper_;
@@ -200,6 +202,7 @@ private:
     void* uniform_buffer_mapped_data_;
 
     // Input handling members
+    std::unordered_set<platform::KeyCode> pressed_keys_;
     float last_x_ = 0.0F;
     float last_y_ = 0.0F;
     // Rename camera_rotation_mode_ to free_look_mode_
@@ -208,7 +211,7 @@ private:
     float orbit_distance_ = 0.0F;  // 轨道旋转时与中心的距离
 
     void initialize_vulkan_hpp();
-    void initialize_sdl();
+    void initialize_window();
     void initialize_vulkan();
     void initialize_camera();
 
@@ -240,7 +243,7 @@ private:
     // -------------------------
 
     // --- camera control ---
-    void process_input(SDL_Event& event);
+    void on_event(const platform::InputEvent& event);
     void process_keyboard_input(float delta_time);
     void process_mouse_scroll(float yoffset);
     void focus_on_object(const glm::vec3& object_position, float target_distance);

@@ -32,6 +32,7 @@ add_subdirectory(src/_callable)
 add_subdirectory(src/_vra)
 add_subdirectory(src/_gltf)
 add_subdirectory(src/_templates)
+add_subdirectory(src/platform)
 
 # 设置源文件
 set(SOURCES
@@ -62,6 +63,7 @@ target_link_libraries(VulkanSample
     vulkan_old_class                # 添加旧的 Vulkan 类库
     callable                        # 添加可调用库
     template                        # 添加模板库
+    platform                        # 添加平台库
 )
 
 # 包含目录

@@ -36,7 +36,7 @@ void VulkanSample::Initialize()
 {
     // initialize SDL, vulkan, and camera
     initialize_vulkan_hpp();
-    initialize_sdl();
+    initialize_window();
     initialize_camera();
     initialize_vulkan();
 }
@@ -125,7 +125,8 @@ VulkanSample::~VulkanSample()
     // release unique pointer
 
     vk_shader_helper_.reset();
-    vk_window_helper_.reset();
+    window_->Shutdown();
+    window_.reset();
     vk_renderpass_helper_.reset();
     vk_pipeline_helper_.reset();
     vk_frame_buffer_helper_.reset();
@@ -135,6 +136,7 @@ VulkanSample::~VulkanSample()
     // destroy comm test data
 
     vkDestroyDevice(comm_vk_logical_device_, nullptr);
+    vkDestroySurfaceKHR(comm_vk_instance_, surface_, nullptr);
     vkDestroyInstance(comm_vk_instance_, nullptr);
 
     // 重置单例指针
@@ -147,20 +149,20 @@ void VulkanSample::initialize_vulkan_hpp()
 }
 
 // Initialize the engine
-void VulkanSample::initialize_sdl()
+void VulkanSample::initialize_window()
 {
-    vk_window_helper_ = std::make_unique<VulkanSDLWindowHelper>();
-    if (!vk_window_helper_->GetWindowBuilder()
-             .SetWindowName(engine_config_.window_config.title)
-             .SetWindowSize(engine_config_.window_config.width, engine_config_.window_config.height)
-             .SetWindowFlags(SDL_WINDOW_RESIZABLE | SDL_WINDOW_VULKAN)
-             .SetInitFlags(SDL_INIT_VIDEO | SDL_INIT_EVENTS)
-             .Build())
+    window_ = std::make_unique<platform::SDLWindow>();
+    platform::WindowConfig config;
+    config.title = engine_config_.window_config.title;
+    config.width = engine_config_.window_config.width;
+    config.height = engine_config_.window_config.height;
+
+    if (!window_->Initialize(config))
     {
-        throw std::runtime_error("Failed to create SDL window.");
+        throw std::runtime_error("Failed to create window.");
     }
 
-    // SDL Creation
+    window_->SetEventCallback([this](const platform::InputEvent& event) { this->on_event(event); });
 }
 
 void VulkanSample::initialize_vulkan()
@@ -269,8 +271,6 @@ void VulkanSample::Run()
 {
     engine_state_ = EWindowState::kRunning;
 
-    SDL_Event event;
-
     Uint64 last_time = SDL_GetTicks();
     float delta_time = 0.0F;
 
@@ -283,27 +283,10 @@ void VulkanSample::Run()
         last_time           = current_time;
 
         // handle events on queue
-        while (SDL_PollEvent(&event))
+        window_->PollEvents();
+        if (window_->ShouldClose())
         {
-            process_input(event);
-
-            // close the window when user alt-f4s or clicks the X button
-            if (event.type == SDL_EVENT_QUIT)
-            {
-                engine_state_ = EWindowState::kStopped;
-            }
-
-            if (event.window.type == SDL_EVENT_WINDOW_SHOWN)
-            {
-                if (event.window.type == SDL_EVENT_WINDOW_MINIMIZED)
-                {
-                    render_state_ = ERenderState::kFalse;
-                }
-                if (event.window.type == SDL_EVENT_WINDOW_RESTORED)
-                {
-                    render_state_ = ERenderState::kTrue;
-                }
-            }
+            engine_state_ = EWindowState::kStopped;
         }
 
         // process keyboard input to update camera
@@ -334,161 +317,144 @@ void VulkanSample::Run()
     vkDeviceWaitIdle(comm_vk_logical_device_);
 }
 
-void VulkanSample::process_input(SDL_Event& event)
+void VulkanSample::on_event(const platform::InputEvent& event)
 {
-    // key down event
-    if (event.type == SDL_EVENT_KEY_DOWN)
+    switch (event.type)
     {
-        // ESC key to exit
-        if (event.key.key == SDLK_ESCAPE)
-        {
+        case platform::EventType::Quit:
             engine_state_ = EWindowState::kStopped;
-        }
-        // Toggle focus constraint with 'F' key
-        if (event.key.key == SDLK_F)
-        {
-            camera_.focus_constraint_enabled_ = !camera_.focus_constraint_enabled_;
-            Logger::LogInfo(camera_.focus_constraint_enabled_ ? "Focus constraint enabled"
-                                                              : "Focus constraint disabled");
-        }
-    }
+            break;
 
-    // mouse button down event
-    if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN)
-    {
-        float mouse_x = NAN;
-        float mouse_y = NAN;
-        SDL_GetMouseState(&mouse_x, &mouse_y);
-        last_x_ = mouse_x;
-        last_y_ = mouse_y;
-
-        if (event.button.button == SDL_BUTTON_RIGHT)
-        {
-            // Use free_look_mode_ instead of camera_rotation_mode_
-            free_look_mode_ = true;
-            // save the current mouse position
-            last_x_ = mouse_x;
-            last_y_ = mouse_y;
-        }
-        else if (event.button.button == SDL_BUTTON_MIDDLE)
-        {
-            camera_pan_mode_ = true;
-        }
-    }
-
-    // mouse button up event
-    if (event.type == SDL_EVENT_MOUSE_BUTTON_UP)
-    {
-        if (event.button.button == SDL_BUTTON_RIGHT)
-        {
-            // Use free_look_mode_ instead of camera_rotation_mode_
-            free_look_mode_ = false;
-        }
-        else if (event.button.button == SDL_BUTTON_MIDDLE)
-        {
-            camera_pan_mode_ = false;
-        }
-    }
-
-    // mouse motion event
-    if (event.type == SDL_EVENT_MOUSE_MOTION)
-    {
-        // Only process mouse motion for camera control if a mode is active
-        if (!free_look_mode_ && !camera_pan_mode_)
-        {
-            return; // Do nothing if no camera control mode is active
-        }
-
-        float x_pos    = event.motion.x;
-        float y_pos    = event.motion.y;
-        float x_offset = x_pos - last_x_;
-        float y_offset = last_y_ - y_pos; // Invert y-offset as screen y increases downwards
-        last_x_        = x_pos;
-        last_y_        = y_pos;
-
-        if (free_look_mode_)
-        {
-            // Calculate mouse sensitivity scale based on distance to focus point if
-            // constraint is enabled
-            float sensitivity_scale = 1.0F;
-            if (camera_.has_focus_point && camera_.focus_constraint_enabled_)
+        case platform::EventType::KeyDown:
+            pressed_keys_.insert(event.key.key);
+            if (event.key.key == platform::KeyCode::Escape)
             {
-                float current_distance = glm::length(camera_.position - camera_.focus_point);
-                float distance_factor  = glm::clamp(current_distance / camera_.focus_distance,
-                                                   camera_.min_focus_distance / camera_.focus_distance,
-                                                   camera_.max_focus_distance / camera_.focus_distance);
-                sensitivity_scale      = distance_factor; // Slower when closer to focus point
+                engine_state_ = EWindowState::kStopped;
+            }
+            if (event.key.key == platform::KeyCode::F) // Assuming F is mapped
+            {
+                // camera_.focus_constraint_enabled_ = !camera_.focus_constraint_enabled_;
+                // Logger::LogInfo(camera_.focus_constraint_enabled_ ? "Focus constraint enabled" : "Focus constraint disabled");
+            }
+            break;
+
+        case platform::EventType::KeyUp:
+            pressed_keys_.erase(event.key.key);
+            break;
+
+        case platform::EventType::MouseButtonDown:
+            last_x_ = event.mouse_button.x;
+            last_y_ = event.mouse_button.y;
+            if (event.mouse_button.button == platform::MouseButton::Right)
+            {
+                free_look_mode_ = true;
+            }
+            else if (event.mouse_button.button == platform::MouseButton::Middle)
+            {
+                camera_pan_mode_ = true;
+            }
+            break;
+
+        case platform::EventType::MouseButtonUp:
+            if (event.mouse_button.button == platform::MouseButton::Right)
+            {
+                free_look_mode_ = false;
+            }
+            else if (event.mouse_button.button == platform::MouseButton::Middle)
+            {
+                camera_pan_mode_ = false;
+            }
+            break;
+
+        case platform::EventType::MouseMove:
+            if (!free_look_mode_ && !camera_pan_mode_)
+            {
+                break;
             }
 
-            // Apply sensitivity and scale
-            float actual_x_offset = x_offset * camera_.mouse_sensitivity * sensitivity_scale;
-            float actual_y_offset = y_offset * camera_.mouse_sensitivity * sensitivity_scale;
-
-            // Update the yaw and pitch (Unity-style tracking mode)
-            camera_.yaw += actual_x_offset;   // Changed from -= to +=
-            camera_.pitch += actual_y_offset; // Changed from -= to +=
-
-            // limit the pitch angle
-            camera_.pitch = std::min(camera_.pitch, 89.0F);
-            camera_.pitch = std::max(camera_.pitch, -89.0F);
-
-            // calculate the new camera direction and update vectors
-            camera_.UpdateCameraVectors();
-        }
-
-        if (camera_pan_mode_)
-        {
-            // calculate the current distance to the focus point
-            float current_distance =
-                camera_.has_focus_point ? glm::length(camera_.position - camera_.focus_point) : camera_.focus_distance;
-
-            // calculate the distance scale based on the distance
-            float distance_scale = glm::clamp(current_distance / camera_.focus_distance,
-                                              camera_.min_focus_distance / camera_.focus_distance,
-                                              camera_.max_focus_distance / camera_.focus_distance);
-
-            float pan_speed_multiplier = 0.005F;
-            // Apply distance scaling to pan speed if focus constraint is enabled
-            float actual_pan_speed_multiplier =
-                camera_.focus_constraint_enabled_ ? pan_speed_multiplier / distance_scale : pan_speed_multiplier;
-
-            // calculate the target movement amount
-            float target_x_offset = x_offset * camera_.movement_speed * actual_pan_speed_multiplier;
-            float target_y_offset = y_offset * camera_.movement_speed * actual_pan_speed_multiplier;
-
-            // Apply movement using camera's right and up vectors
-            camera_.position -= camera_.right * target_x_offset; // Pan left/right
-            camera_.position += camera_.up * target_y_offset;    // Pan up/down
-        }
-    }
-
-    // mouse wheel event
-    if (event.type == SDL_EVENT_MOUSE_WHEEL)
-    {
-        float zoom_factor = camera_.wheel_speed;
-        float distance    = glm::length(camera_.position);
-
-        if (event.wheel.y > 0)
-        {
-            if (distance > 0.5F)
             {
-                camera_.position *= (1.0F - zoom_factor);
-            }
-        }
-        else if (event.wheel.y < 0)
-        {
-            camera_.position *= (1.0F + zoom_factor);
-        }
+                float x_pos    = event.mouse_move.x;
+                float y_pos    = event.mouse_move.y;
+                float x_offset = x_pos - last_x_;
+                float y_offset = last_y_ - y_pos;
+                last_x_        = x_pos;
+                last_y_        = y_pos;
 
-        process_mouse_scroll(event.wheel.y);
+                if (free_look_mode_)
+                {
+                    float sensitivity_scale = 1.0F;
+                    if (camera_.has_focus_point && camera_.focus_constraint_enabled_)
+                    {
+                        float current_distance = glm::length(camera_.position - camera_.focus_point);
+                        float distance_factor  = glm::clamp(current_distance / camera_.focus_distance,
+                                                           camera_.min_focus_distance / camera_.focus_distance,
+                                                           camera_.max_focus_distance / camera_.focus_distance);
+                        sensitivity_scale      = distance_factor;
+                    }
+
+                    float actual_x_offset = x_offset * camera_.mouse_sensitivity * sensitivity_scale;
+                    float actual_y_offset = y_offset * camera_.mouse_sensitivity * sensitivity_scale;
+
+                    camera_.yaw += actual_x_offset;
+                    camera_.pitch += actual_y_offset;
+
+                    camera_.pitch = std::min(camera_.pitch, 89.0F);
+                    camera_.pitch = std::max(camera_.pitch, -89.0F);
+
+                    camera_.UpdateCameraVectors();
+                }
+
+                if (camera_pan_mode_)
+                {
+                    float current_distance = camera_.has_focus_point
+                                                 ? glm::length(camera_.position - camera_.focus_point)
+                                                 : camera_.focus_distance;
+
+                    float distance_scale = glm::clamp(current_distance / camera_.focus_distance,
+                                                      camera_.min_focus_distance / camera_.focus_distance,
+                                                      camera_.max_focus_distance / camera_.focus_distance);
+
+                    float pan_speed_multiplier = 0.005F;
+                    float actual_pan_speed_multiplier =
+                        camera_.focus_constraint_enabled_ ? pan_speed_multiplier / distance_scale : pan_speed_multiplier;
+
+                    float target_x_offset = x_offset * camera_.movement_speed * actual_pan_speed_multiplier;
+                    float target_y_offset = y_offset * camera_.movement_speed * actual_pan_speed_multiplier;
+
+                    camera_.position -= camera_.right * target_x_offset;
+                    camera_.position += camera_.up * target_y_offset;
+                }
+            }
+            break;
+
+        case platform::EventType::MouseWheel:
+            {
+                float zoom_factor = camera_.wheel_speed;
+                float distance    = glm::length(camera_.position);
+
+                if (event.mouse_wheel.y > 0)
+                {
+                    if (distance > 0.5F)
+                    {
+                        camera_.position *= (1.0F - zoom_factor);
+                    }
+                }
+                else if (event.mouse_wheel.y < 0)
+                {
+                    camera_.position *= (1.0F + zoom_factor);
+                }
+
+                process_mouse_scroll(event.mouse_wheel.y);
+            }
+            break;
+            
+        default:
+            break;
     }
 }
 
 void VulkanSample::process_keyboard_input(float delta_time)
 {
-    // get the keyboard state
-    const bool* keyboard_state = SDL_GetKeyboardState(nullptr);
-
     float velocity = camera_.movement_speed * delta_time;
 
     // If free look mode is enabled, move in world space based on camera
@@ -511,31 +477,31 @@ void VulkanSample::process_keyboard_input(float delta_time)
         glm::vec3 movement(0.0F);
 
         // move front/back (Z-axis relative to camera)
-        if (keyboard_state[SDL_SCANCODE_W] || keyboard_state[SDL_SCANCODE_UP])
+        if (pressed_keys_.count(platform::KeyCode::W) || pressed_keys_.count(platform::KeyCode::Up))
         {
             movement += camera_.front * current_velocity;
         }
-        if (keyboard_state[SDL_SCANCODE_S] || keyboard_state[SDL_SCANCODE_DOWN])
+        if (pressed_keys_.count(platform::KeyCode::S) || pressed_keys_.count(platform::KeyCode::Down))
         {
             movement -= camera_.front * current_velocity;
         }
 
         // move left/right (X-axis relative to camera)
-        if (keyboard_state[SDL_SCANCODE_A] || keyboard_state[SDL_SCANCODE_LEFT])
+        if (pressed_keys_.count(platform::KeyCode::A) || pressed_keys_.count(platform::KeyCode::Left))
         {
             movement -= camera_.right * current_velocity;
         }
-        if (keyboard_state[SDL_SCANCODE_D] || keyboard_state[SDL_SCANCODE_RIGHT])
+        if (pressed_keys_.count(platform::KeyCode::D) || pressed_keys_.count(platform::KeyCode::Right))
         {
             movement += camera_.right * current_velocity;
         }
 
         // move up/down (Y-axis relative to world or camera up)
-        if (keyboard_state[SDL_SCANCODE_Q])
+        if (pressed_keys_.count(platform::KeyCode::Q))
         {
             movement += camera_.up * current_velocity; // Using camera's up vector for local up/down
         }
-        if (keyboard_state[SDL_SCANCODE_E])
+        if (pressed_keys_.count(platform::KeyCode::E))
         {
             movement -= camera_.up * current_velocity; // Using camera's up vector for local up/down
         }
@@ -549,32 +515,32 @@ void VulkanSample::process_keyboard_input(float delta_time)
         glm::vec3 movement(0.0F);
 
         // move up (Y-axis)
-        if (keyboard_state[SDL_SCANCODE_W] || keyboard_state[SDL_SCANCODE_UP])
+        if (pressed_keys_.count(platform::KeyCode::W) || pressed_keys_.count(platform::KeyCode::Up))
         {
             movement.y += velocity; // move up (Y-axis positive direction)
         }
-        if (keyboard_state[SDL_SCANCODE_S] || keyboard_state[SDL_SCANCODE_DOWN])
+        if (pressed_keys_.count(platform::KeyCode::S) || pressed_keys_.count(platform::KeyCode::Down))
         {
             movement.y -= velocity; // move down (Y-axis negative direction)
         }
 
         // move left (l-axis)t (X-axis)
-        if (keyboard_state[SDL_SCANCODE_A] || keyboard_state[SDL_SCANCODE_LEFT])
+        if (pressed_keys_.count(platform::KeyCode::A) || pressed_keys_.count(platform::KeyCode::Left))
         {
             movement.x -= velocity; // move left (l-axis negative direction)X-axis
                                     // negative direction)
         }
-        if (keyboard_state[SDL_SCANCODE_D] || keyboard_state[SDL_SCANCODE_RIGHT])
+        if (pressed_keys_.count(platform::KeyCode::D) || pressed_keys_.count(platform::KeyCode::Right))
         {
             movement.x += velocity; // move right (X-axis positive direction)
         }
 
         // move front (Z-axis)
-        if (keyboard_state[SDL_SCANCODE_Q])
+        if (pressed_keys_.count(platform::KeyCode::Q))
         {
             movement.z += velocity; // move back (Z-axis negative direction)
         }
-        if (keyboard_state[SDL_SCANCODE_E])
+        if (pressed_keys_.count(platform::KeyCode::E))
         {
             movement.z -= velocity; // move front (Z-axis positive direction)
         }
@@ -648,7 +614,7 @@ void VulkanSample::generate_frame_structs()
 
 bool VulkanSample::create_instance()
 {
-    auto extensions     = vk_window_helper_->GetWindowExtensions();
+    auto extensions     = window_->GetRequiredInstanceExtensions();
     auto instance_chain = common::instance::create_context() | common::instance::set_application_name("My Vulkan App") |
                           common::instance::set_engine_name("My Engine") |
                           common::instance::set_api_version(1, 3, 0) |
@@ -673,7 +639,7 @@ bool VulkanSample::create_instance()
 
 bool VulkanSample::create_surface()
 {
-    return vk_window_helper_->CreateSurface(comm_vk_instance_);
+    return window_->CreateSurface(comm_vk_instance_, &surface_);
 }
 
 bool VulkanSample::create_physical_device()
@@ -682,7 +648,7 @@ bool VulkanSample::create_physical_device()
     vk::PhysicalDeviceVulkan13Features features_13{.synchronization2 = vk::True};
 
     auto physical_device_chain = common::physicaldevice::create_physical_device_context(comm_vk_instance_) |
-                                 common::physicaldevice::set_surface(vk_window_helper_->GetSurface()) |
+                                 common::physicaldevice::set_surface(surface_) |
                                  common::physicaldevice::require_api_version(1, 3, 0) |
                                  common::physicaldevice::require_features_13(features_13) |
                                  common::physicaldevice::require_queue(vk::QueueFlagBits::eGraphics, 1, true) |
@@ -708,7 +674,7 @@ bool VulkanSample::create_logical_device()
 {
     auto device_chain = common::logicaldevice::create_logical_device_context(comm_vk_physical_device_context_) |
                         common::logicaldevice::require_extensions({vk::KHRSwapchainExtensionName}) |
-                        common::logicaldevice::add_graphics_queue("main_graphics", vk_window_helper_->GetSurface()) |
+                        common::logicaldevice::add_graphics_queue("main_graphics", surface_) |
                         common::logicaldevice::add_transfer_queue("upload") |
                         common::logicaldevice::validate_device_configuration() |
                         common::logicaldevice::create_logical_device();
@@ -733,7 +699,7 @@ bool VulkanSample::create_swapchain()
     // create swapchain
 
     auto swapchain_chain =
-        common::swapchain::create_swapchain_context(comm_vk_logical_device_context_, vk_window_helper_->GetSurface()) |
+        common::swapchain::create_swapchain_context(comm_vk_logical_device_context_, surface_) |
         common::swapchain::set_surface_format(vk::Format::eB8G8R8A8Unorm, vk::ColorSpaceKHR::eSrgbNonlinear) |
         common::swapchain::set_present_mode(vk::PresentModeKHR::eFifo) | common::swapchain::set_image_count(2, 3) |
         common::swapchain::set_desired_extent(static_cast<uint32_t>(engine_config_.window_config.width),
@@ -1219,9 +1185,10 @@ void VulkanSample::resize_swapchain()
     vk_frame_buffer_helper_.reset();
 
     // reset window size
-    auto current_extent                 = vk_window_helper_->GetCurrentWindowExtent();
-    engine_config_.window_config.width  = current_extent.width;
-    engine_config_.window_config.height = current_extent.height;
+    int width, height;
+    window_->GetExtent(width, height);
+    engine_config_.window_config.width  = width;
+    engine_config_.window_config.height = height;
 
     // create new swapchain
     if (!create_swapchain())
