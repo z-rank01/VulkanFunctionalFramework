@@ -32,7 +32,7 @@ add_subdirectory(src/_callable)
 add_subdirectory(src/_vra)
 add_subdirectory(src/_gltf)
 add_subdirectory(src/_templates)
-add_subdirectory(src/platform)
+add_subdirectory(src/_interface)
 
 # 设置源文件
 set(SOURCES

@@ -1104,7 +1104,10 @@ void VulkanSample::draw_frame()
 
     // acquire next image
     auto acquire_result = comm_vk_logical_device_.acquireNextImageKHR(
-        comm_vk_swapchain_, UINT64_MAX, image_available_semaphore, VK_NULL_HANDLE);
+        comm_vk_swapchain_, 
+        UINT64_MAX, 
+        image_available_semaphore, 
+        VK_NULL_HANDLE);
     if (acquire_result.result == vk::Result::eErrorOutOfDateKHR || acquire_result.result == vk::Result::eSuboptimalKHR)
     {
         resize_request_ = true;

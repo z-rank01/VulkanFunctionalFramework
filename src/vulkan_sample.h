@@ -8,8 +8,8 @@
 #include <memory>
 #include <unordered_set>
 
-#include "platform/window.h"
-#include "platform/sdl_window.h" // For default implementation
+#include "_interface/window.h"
+#include "_interface/sdl_window.h" // For default implementation
 #include "_gltf/gltf_data.h"
 #include "_old/vulkan_commandbuffer.h"
 #include "_old/vulkan_framebuffer.h"
@@ -17,7 +17,6 @@
 #include "_old/vulkan_renderpass.h"
 #include "_old/vulkan_shader.h"
 #include "_old/vulkan_synchronization.h"
-#include "_old/vulkan_window.h"
 #include "_templates/common.hpp"
 #include "_vra/vra.h"
 #include "utility/config_reader.h"
