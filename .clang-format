@@ -68,7 +68,7 @@ DerivePointerAlignment: false
 # 命名空间处理
 CompactNamespaces: false
 FixNamespaceComments: true
-NamespaceIndentation: None
+NamespaceIndentation: All
 
 # Include 分类
 IncludeBlocks: Regroup
