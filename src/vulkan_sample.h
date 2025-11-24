@@ -8,9 +8,9 @@
 #include <memory>
 #include <unordered_set>
 
-#include "_interface/window.h"
-#include "_interface/sdl_window.h" // For default implementation
 #include "_gltf/gltf_data.h"
+#include "_interface/sdl_window.h" // For default implementation
+#include "_interface/window.h"
 #include "_old/vulkan_commandbuffer.h"
 #include "_old/vulkan_framebuffer.h"
 #include "_old/vulkan_pipeline.h"
@@ -188,7 +188,7 @@ private:
     vk::VertexInputAttributeDescription vertex_input_attribute_color_;
 
     // vulkan helper members
-    std::unique_ptr<interface::IWindow> window_;
+    std::unique_ptr<interface::Window> window_;
     std::unique_ptr<VulkanShaderHelper> vk_shader_helper_;
     std::unique_ptr<VulkanRenderpassHelper> vk_renderpass_helper_;
     std::unique_ptr<VulkanPipelineHelper> vk_pipeline_helper_;

@@ -5,11 +5,10 @@
 
 #include "window.h"
 
-
 namespace interface
 {
 
-class SDLWindow : public IWindow
+class SDLWindow : public Window
 {
 public:
     SDLWindow();

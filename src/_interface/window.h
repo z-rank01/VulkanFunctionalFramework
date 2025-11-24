@@ -20,10 +20,10 @@ struct WindowConfig
     bool resizable = true;
 };
 
-class IWindow
+class Window
 {
 public:
-    virtual ~IWindow() = default;
+    virtual ~Window() = default;
 
     virtual bool Initialize(const WindowConfig& config) = 0;
     virtual void Shutdown()                             = 0;

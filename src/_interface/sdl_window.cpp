@@ -10,7 +10,7 @@ SDLWindow::SDLWindow() { }
 
 SDLWindow::~SDLWindow()
 {
-    Shutdown();
+    SDLWindow::Shutdown();
 }
 
 bool SDLWindow::Initialize(const WindowConfig& config)
