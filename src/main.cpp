@@ -71,8 +71,8 @@ int main()
     // window config
 
     SWindowConfig window_config;
-    const auto kWindowWidth  = 800;
-    const auto kWindowHeight = 600;
+    const auto kWindowWidth  = 1280;
+    const auto kWindowHeight = 720;
     const auto* window_name  = "Vulkan Engine";
 
     window_config.width  = kWindowWidth;
@@ -81,7 +81,7 @@ int main()
 
     // general config
 
-    ConfigReader config_reader(R"(E:\Projects\VulkanFunctionalFramework\config\win64\app_config.json)");
+    ConfigReader config_reader(R"(D:\Repository\VulkanFunctionalFramework\config\win64\app_config.json)");
     SGeneralConfig general_config;
     if (!config_reader.TryParseGeneralConfig(general_config))
     {

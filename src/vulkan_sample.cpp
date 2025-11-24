@@ -894,9 +894,10 @@ bool VulkanSample::create_depth_resources()
     // 创建深度图像
     vk::ImageCreateInfo image_info;
     image_info.setImageType(vk::ImageType::e2D)
-        .setExtent({comm_vk_swapchain_context_.swapchain_info_.extent_.width,
-                    comm_vk_swapchain_context_.swapchain_info_.extent_.height,
-                    1})
+        .setExtent({
+            .width=comm_vk_swapchain_context_.swapchain_info_.extent_.width,
+            .height=comm_vk_swapchain_context_.swapchain_info_.extent_.height,
+            .depth=1})
         .setMipLevels(1)
         .setArrayLayers(1)
         .setFormat(depth_format_)
