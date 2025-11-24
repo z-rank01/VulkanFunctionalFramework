@@ -65,7 +65,7 @@ namespace interface
     {
     public:
         SimpleCamera() = default;
-        ~SimpleCamera() override {}
+        ~SimpleCamera() override = default;
         void tick(const interface::InputEvent& event) override;
 
     private:
