@@ -1,12 +1,16 @@
 #pragma once
 
-#include "window.h"
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_vulkan.h>
 
-namespace platform {
+#include "window.h"
 
-class SDLWindow : public IWindow {
+
+namespace interface
+{
+
+class SDLWindow : public IWindow
+{
 public:
     SDLWindow();
     ~SDLWindow() override;
@@ -29,11 +33,11 @@ public:
 
 private:
     SDL_Window* window_ = nullptr;
-    bool should_close_ = false;
+    bool should_close_  = false;
     EventCallback event_callback_;
 
     KeyCode translate_key_code(SDL_Keycode key);
     MouseButton translate_mouse_button(uint8_t button);
 };
 
-} // namespace platform
+} // namespace interface

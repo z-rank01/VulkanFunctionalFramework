@@ -151,8 +151,8 @@ void VulkanSample::initialize_vulkan_hpp()
 // Initialize the engine
 void VulkanSample::initialize_window()
 {
-    window_ = std::make_unique<platform::SDLWindow>();
-    platform::WindowConfig config;
+    window_ = std::make_unique<interface::SDLWindow>();
+    interface::WindowConfig config;
     config.title = engine_config_.window_config.title;
     config.width = engine_config_.window_config.width;
     config.height = engine_config_.window_config.height;
@@ -162,7 +162,7 @@ void VulkanSample::initialize_window()
         throw std::runtime_error("Failed to create window.");
     }
 
-    window_->SetEventCallback([this](const platform::InputEvent& event) { this->on_event(event); });
+    window_->SetEventCallback([this](const interface::InputEvent& event) { this->on_event(event); });
 }
 
 void VulkanSample::initialize_vulkan()
@@ -317,56 +317,56 @@ void VulkanSample::Run()
     vkDeviceWaitIdle(comm_vk_logical_device_);
 }
 
-void VulkanSample::on_event(const platform::InputEvent& event)
+void VulkanSample::on_event(const interface::InputEvent& event)
 {
     switch (event.type)
     {
-        case platform::EventType::Quit:
+        case interface::EventType::Quit:
             engine_state_ = EWindowState::kStopped;
             break;
 
-        case platform::EventType::KeyDown:
+        case interface::EventType::KeyDown:
             pressed_keys_.insert(event.key.key);
-            if (event.key.key == platform::KeyCode::Escape)
+            if (event.key.key == interface::KeyCode::Escape)
             {
                 engine_state_ = EWindowState::kStopped;
             }
-            if (event.key.key == platform::KeyCode::F) // Assuming F is mapped
+            if (event.key.key == interface::KeyCode::F) // Assuming F is mapped
             {
                 // camera_.focus_constraint_enabled_ = !camera_.focus_constraint_enabled_;
                 // Logger::LogInfo(camera_.focus_constraint_enabled_ ? "Focus constraint enabled" : "Focus constraint disabled");
             }
             break;
 
-        case platform::EventType::KeyUp:
+        case interface::EventType::KeyUp:
             pressed_keys_.erase(event.key.key);
             break;
 
-        case platform::EventType::MouseButtonDown:
+        case interface::EventType::MouseButtonDown:
             last_x_ = event.mouse_button.x;
             last_y_ = event.mouse_button.y;
-            if (event.mouse_button.button == platform::MouseButton::Right)
+            if (event.mouse_button.button == interface::MouseButton::Right)
             {
                 free_look_mode_ = true;
             }
-            else if (event.mouse_button.button == platform::MouseButton::Middle)
+            else if (event.mouse_button.button == interface::MouseButton::Middle)
             {
                 camera_pan_mode_ = true;
             }
             break;
 
-        case platform::EventType::MouseButtonUp:
-            if (event.mouse_button.button == platform::MouseButton::Right)
+        case interface::EventType::MouseButtonUp:
+            if (event.mouse_button.button == interface::MouseButton::Right)
             {
                 free_look_mode_ = false;
             }
-            else if (event.mouse_button.button == platform::MouseButton::Middle)
+            else if (event.mouse_button.button == interface::MouseButton::Middle)
             {
                 camera_pan_mode_ = false;
             }
             break;
 
-        case platform::EventType::MouseMove:
+        case interface::EventType::MouseMove:
             if (!free_look_mode_ && !camera_pan_mode_)
             {
                 break;
@@ -427,7 +427,7 @@ void VulkanSample::on_event(const platform::InputEvent& event)
             }
             break;
 
-        case platform::EventType::MouseWheel:
+        case interface::EventType::MouseWheel:
             {
                 float zoom_factor = camera_.wheel_speed;
                 float distance    = glm::length(camera_.position);
@@ -477,31 +477,31 @@ void VulkanSample::process_keyboard_input(float delta_time)
         glm::vec3 movement(0.0F);
 
         // move front/back (Z-axis relative to camera)
-        if (pressed_keys_.count(platform::KeyCode::W) || pressed_keys_.count(platform::KeyCode::Up))
+        if (pressed_keys_.count(interface::KeyCode::W) || pressed_keys_.count(interface::KeyCode::Up))
         {
             movement += camera_.front * current_velocity;
         }
-        if (pressed_keys_.count(platform::KeyCode::S) || pressed_keys_.count(platform::KeyCode::Down))
+        if (pressed_keys_.count(interface::KeyCode::S) || pressed_keys_.count(interface::KeyCode::Down))
         {
             movement -= camera_.front * current_velocity;
         }
 
         // move left/right (X-axis relative to camera)
-        if (pressed_keys_.count(platform::KeyCode::A) || pressed_keys_.count(platform::KeyCode::Left))
+        if (pressed_keys_.count(interface::KeyCode::A) || pressed_keys_.count(interface::KeyCode::Left))
         {
             movement -= camera_.right * current_velocity;
         }
-        if (pressed_keys_.count(platform::KeyCode::D) || pressed_keys_.count(platform::KeyCode::Right))
+        if (pressed_keys_.count(interface::KeyCode::D) || pressed_keys_.count(interface::KeyCode::Right))
         {
             movement += camera_.right * current_velocity;
         }
 
         // move up/down (Y-axis relative to world or camera up)
-        if (pressed_keys_.count(platform::KeyCode::Q))
+        if (pressed_keys_.count(interface::KeyCode::Q))
         {
             movement += camera_.up * current_velocity; // Using camera's up vector for local up/down
         }
-        if (pressed_keys_.count(platform::KeyCode::E))
+        if (pressed_keys_.count(interface::KeyCode::E))
         {
             movement -= camera_.up * current_velocity; // Using camera's up vector for local up/down
         }
@@ -515,32 +515,32 @@ void VulkanSample::process_keyboard_input(float delta_time)
         glm::vec3 movement(0.0F);
 
         // move up (Y-axis)
-        if (pressed_keys_.count(platform::KeyCode::W) || pressed_keys_.count(platform::KeyCode::Up))
+        if (pressed_keys_.count(interface::KeyCode::W) || pressed_keys_.count(interface::KeyCode::Up))
         {
             movement.y += velocity; // move up (Y-axis positive direction)
         }
-        if (pressed_keys_.count(platform::KeyCode::S) || pressed_keys_.count(platform::KeyCode::Down))
+        if (pressed_keys_.count(interface::KeyCode::S) || pressed_keys_.count(interface::KeyCode::Down))
         {
             movement.y -= velocity; // move down (Y-axis negative direction)
         }
 
         // move left (l-axis)t (X-axis)
-        if (pressed_keys_.count(platform::KeyCode::A) || pressed_keys_.count(platform::KeyCode::Left))
+        if (pressed_keys_.count(interface::KeyCode::A) || pressed_keys_.count(interface::KeyCode::Left))
         {
             movement.x -= velocity; // move left (l-axis negative direction)X-axis
                                     // negative direction)
         }
-        if (pressed_keys_.count(platform::KeyCode::D) || pressed_keys_.count(platform::KeyCode::Right))
+        if (pressed_keys_.count(interface::KeyCode::D) || pressed_keys_.count(interface::KeyCode::Right))
         {
             movement.x += velocity; // move right (X-axis positive direction)
         }
 
         // move front (Z-axis)
-        if (pressed_keys_.count(platform::KeyCode::Q))
+        if (pressed_keys_.count(interface::KeyCode::Q))
         {
             movement.z += velocity; // move back (Z-axis negative direction)
         }
-        if (pressed_keys_.count(platform::KeyCode::E))
+        if (pressed_keys_.count(interface::KeyCode::E))
         {
             movement.z -= velocity; // move front (Z-axis positive direction)
         }

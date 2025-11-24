@@ -38,11 +38,13 @@ add_subdirectory(src/_interface)
 set(SOURCES
     src/main.cpp
     src/vulkan_sample.cpp
+    src/app_sample.cpp
 )
 
 # 设置头文件
 set(HEADERS
     src/vulkan_sample.h
+    src/app_sample.h
 )
 
 # 添加可执行文件
@@ -63,7 +65,7 @@ target_link_libraries(VulkanSample
     vulkan_old_class                # 添加旧的 Vulkan 类库
     callable                        # 添加可调用库
     template                        # 添加模板库
-    platform                        # 添加平台库
+    interface                       # 添加平台库
 )
 
 # 包含目录

@@ -18,7 +18,7 @@ int main()
     // read gltf file
 
     auto loader = gltf::GltfLoader();
-    auto asset  = loader(R"(E:\Assets\Sponza\SponzaBase\NewSponza_Main_glTF_003.gltf)");
+    auto asset  = loader(R"(D:\Assets\Sponza\main1_sponza\NewSponza_Main_glTF_003.gltf)");
     // auto asset = loader("E:\\Assets\\Sponza\\SponzaCurtains\\NewSponza_Curtains_glTF.gltf");
 
     // parse gltf file

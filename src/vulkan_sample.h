@@ -188,7 +188,7 @@ private:
     vk::VertexInputAttributeDescription vertex_input_attribute_color_;
 
     // vulkan helper members
-    std::unique_ptr<platform::IWindow> window_;
+    std::unique_ptr<interface::IWindow> window_;
     std::unique_ptr<VulkanShaderHelper> vk_shader_helper_;
     std::unique_ptr<VulkanRenderpassHelper> vk_renderpass_helper_;
     std::unique_ptr<VulkanPipelineHelper> vk_pipeline_helper_;
@@ -201,7 +201,7 @@ private:
     void* uniform_buffer_mapped_data_;
 
     // Input handling members
-    std::unordered_set<platform::KeyCode> pressed_keys_;
+    std::unordered_set<interface::KeyCode> pressed_keys_;
     float last_x_ = 0.0F;
     float last_y_ = 0.0F;
     // Rename camera_rotation_mode_ to free_look_mode_
@@ -242,7 +242,7 @@ private:
     // -------------------------
 
     // --- camera control ---
-    void on_event(const platform::InputEvent& event);
+    void on_event(const interface::InputEvent& event);
     void process_keyboard_input(float delta_time);
     void process_mouse_scroll(float yoffset);
     void focus_on_object(const glm::vec3& object_position, float target_distance);

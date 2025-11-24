@@ -2,20 +2,39 @@
 
 #include <cstdint>
 
-namespace platform {
+namespace interface
+{
 
-enum class KeyCode {
+enum class KeyCode
+{
     Unknown,
-    W, A, S, D, Q, E, F,
-    Space, LShift, LCtrl, Escape,
-    Up, Down, Left, Right
+    W,
+    A,
+    S,
+    D,
+    Q,
+    E,
+    F,
+    Space,
+    LShift,
+    LCtrl,
+    Escape,
+    Up,
+    Down,
+    Left,
+    Right
 };
 
-enum class MouseButton {
-    Left, Middle, Right, Unknown
+enum class MouseButton
+{
+    Left,
+    Middle,
+    Right,
+    Unknown
 };
 
-enum class EventType {
+enum class EventType
+{
     Quit,
     Resize,
     KeyDown,
@@ -26,37 +45,44 @@ enum class EventType {
     MouseButtonUp
 };
 
-struct ResizeEvent {
+struct ResizeEvent
+{
     int width;
     int height;
 };
 
-struct KeyEvent {
+struct KeyEvent
+{
     KeyCode key;
 };
 
-struct MouseMoveEvent {
+struct MouseMoveEvent
+{
     float x;
     float y;
     float xrel;
     float yrel;
 };
 
-struct MouseWheelEvent {
+struct MouseWheelEvent
+{
     float x;
     float y;
 };
 
-struct MouseButtonEvent {
+struct MouseButtonEvent
+{
     MouseButton button;
     float x;
     float y;
     bool pressed; // true for down, false for up
 };
 
-struct InputEvent {
+struct InputEvent
+{
     EventType type;
-    union {
+    union
+    {
         ResizeEvent resize;
         KeyEvent key;
         MouseMoveEvent mouse_move;
@@ -65,4 +91,4 @@ struct InputEvent {
     };
 };
 
-} // namespace platform
+} // namespace interface
