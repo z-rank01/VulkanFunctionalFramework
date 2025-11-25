@@ -10,49 +10,27 @@ namespace interface
         case interface::EventType::Quit:
             break;
 
+        // keyboard event
         case interface::EventType::KeyDown:
             pressed_keys_.insert(event.key.key);
-            if (event.key.key == interface::KeyCode::Escape) {}
-            if (event.key.key == interface::KeyCode::F) // Assuming F is mapped
-            {
-                // camera_.focus_constraint_enabled_ = !camera_.focus_constraint_enabled_;
-                // Logger::LogInfo(camera_.focus_constraint_enabled_ ? "Focus constraint enabled" : "Focus constraint disabled");
-            }
             break;
-
         case interface::EventType::KeyUp:
             pressed_keys_.erase(event.key.key);
             break;
 
+        // mouse event
         case interface::EventType::MouseButtonDown:
             last_x_ = event.mouse_button.x;
             last_y_ = event.mouse_button.y;
-            if (event.mouse_button.button == interface::MouseButton::Right)
-            {
-                free_look_mode_ = true;
-            }
-            else if (event.mouse_button.button == interface::MouseButton::Middle)
-            {
-                camera_pan_mode_ = true;
-            }
+            free_look_mode_ = event.mouse_button.button == interface::MouseButton::Right ? true : free_look_mode_;
+            camera_pan_mode_ = event.mouse_button.button == interface::MouseButton::Middle ? true : camera_pan_mode_;
             break;
-
         case interface::EventType::MouseButtonUp:
-            if (event.mouse_button.button == interface::MouseButton::Right)
-            {
-                free_look_mode_ = false;
-            }
-            else if (event.mouse_button.button == interface::MouseButton::Middle)
-            {
-                camera_pan_mode_ = false;
-            }
+            free_look_mode_ = event.mouse_button.button == interface::MouseButton::Right ? false : free_look_mode_;
+            camera_pan_mode_ = event.mouse_button.button == interface::MouseButton::Middle ? false : camera_pan_mode_;
             break;
-
         case interface::EventType::MouseMove:
-            if (!free_look_mode_ && !camera_pan_mode_)
-            {
-                break;
-            }
+            if (!(free_look_mode_ || camera_pan_mode_)) break;
 
             {
                 const float x_pos    = event.mouse_move.x;
@@ -183,11 +161,11 @@ namespace interface
             // move up/down (Y-axis relative to world or camera up)
             if (pressed_keys_.count(interface::KeyCode::Q))
             {
-                movement += camera_.up * current_velocity; // Using camera's up vector for local up/down
+                movement -= camera_.up * current_velocity; // Using camera's up vector for local up/down
             }
             if (pressed_keys_.count(interface::KeyCode::E))
             {
-                movement -= camera_.up * current_velocity; // Using camera's up vector for local up/down
+                movement += camera_.up * current_velocity; // Using camera's up vector for local up/down
             }
 
             // apply the movement

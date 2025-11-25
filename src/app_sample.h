@@ -8,7 +8,6 @@ struct SWindowConfig
     int width_;
     int height_;
     std::string title_;
-
     [[nodiscard]] constexpr auto validate() const -> bool { return width_ > 0 && height_ > 0; }
 };
 
