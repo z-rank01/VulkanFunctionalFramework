@@ -125,7 +125,7 @@ VulkanSample::~VulkanSample()
     // release unique pointer
 
     vk_shader_helper_.reset();
-    window_->Shutdown();
+    window_->close();
     window_.reset();
     vk_renderpass_helper_.reset();
     vk_pipeline_helper_.reset();
@@ -153,16 +153,14 @@ void VulkanSample::initialize_window()
 {
     window_ = std::make_unique<interface::SDLWindow>();
     interface::WindowConfig config;
-    config.title = engine_config_.window_config.title;
-    config.width = engine_config_.window_config.width;
+    config.title  = engine_config_.window_config.title;
+    config.width  = engine_config_.window_config.width;
     config.height = engine_config_.window_config.height;
 
-    if (!window_->Initialize(config))
+    if (!window_->open(config))
     {
         throw std::runtime_error("Failed to create window.");
     }
-
-    window_->SetEventCallback([this](const interface::InputEvent& event) { this->on_event(event); });
 }
 
 void VulkanSample::initialize_vulkan()
@@ -241,7 +239,8 @@ void VulkanSample::initialize_camera()
 {
     // initialize mvp matrices
     mvp_matrices_ = std::vector<SMvpMatrix>(
-        engine_config_.frame_count, {.model = glm::mat4(1.0F), .view = glm::mat4(1.0F), .projection = glm::mat4(1.0F)});
+        engine_config_.frame_count,
+        {.model = glm::mat4(1.0F), .view = glm::mat4(1.0F), .projection = glm::mat4(1.0F)});
 
     // initialize camera
     camera_.position          = glm::vec3(0.0F, 0.0F, 10.0F); // 更远的初始距离
@@ -275,6 +274,7 @@ void VulkanSample::Run()
     float delta_time = 0.0F;
 
     // main loop
+    interface::InputEvent e{};
     while (engine_state_ != EWindowState::kStopped)
     {
         // calculate the time difference between frames
@@ -283,12 +283,13 @@ void VulkanSample::Run()
         last_time           = current_time;
 
         // handle events on queue
-        window_->PollEvents();
-        if (window_->ShouldClose())
+        window_->tick(e);
+        if (window_->should_close())
         {
             engine_state_ = EWindowState::kStopped;
         }
-
+        // tackle I/O event
+        on_event(e);
         // process keyboard input to update camera
         process_keyboard_input(delta_time);
 
@@ -321,135 +322,135 @@ void VulkanSample::on_event(const interface::InputEvent& event)
 {
     switch (event.type)
     {
-        case interface::EventType::Quit:
+    case interface::EventType::Quit:
+        engine_state_ = EWindowState::kStopped;
+        break;
+
+    case interface::EventType::KeyDown:
+        pressed_keys_.insert(event.key.key);
+        if (event.key.key == interface::KeyCode::Escape)
+        {
             engine_state_ = EWindowState::kStopped;
+        }
+        if (event.key.key == interface::KeyCode::F) // Assuming F is mapped
+        {
+            // camera_.focus_constraint_enabled_ = !camera_.focus_constraint_enabled_;
+            // Logger::LogInfo(camera_.focus_constraint_enabled_ ? "Focus constraint enabled" : "Focus constraint disabled");
+        }
+        break;
+
+    case interface::EventType::KeyUp:
+        pressed_keys_.erase(event.key.key);
+        break;
+
+    case interface::EventType::MouseButtonDown:
+        last_x_ = event.mouse_button.x;
+        last_y_ = event.mouse_button.y;
+        if (event.mouse_button.button == interface::MouseButton::Right)
+        {
+            free_look_mode_ = true;
+        }
+        else if (event.mouse_button.button == interface::MouseButton::Middle)
+        {
+            camera_pan_mode_ = true;
+        }
+        break;
+
+    case interface::EventType::MouseButtonUp:
+        if (event.mouse_button.button == interface::MouseButton::Right)
+        {
+            free_look_mode_ = false;
+        }
+        else if (event.mouse_button.button == interface::MouseButton::Middle)
+        {
+            camera_pan_mode_ = false;
+        }
+        break;
+
+    case interface::EventType::MouseMove:
+        if (!free_look_mode_ && !camera_pan_mode_)
+        {
             break;
+        }
 
-        case interface::EventType::KeyDown:
-            pressed_keys_.insert(event.key.key);
-            if (event.key.key == interface::KeyCode::Escape)
-            {
-                engine_state_ = EWindowState::kStopped;
-            }
-            if (event.key.key == interface::KeyCode::F) // Assuming F is mapped
-            {
-                // camera_.focus_constraint_enabled_ = !camera_.focus_constraint_enabled_;
-                // Logger::LogInfo(camera_.focus_constraint_enabled_ ? "Focus constraint enabled" : "Focus constraint disabled");
-            }
-            break;
+        {
+            float x_pos    = event.mouse_move.x;
+            float y_pos    = event.mouse_move.y;
+            float x_offset = x_pos - last_x_;
+            float y_offset = last_y_ - y_pos;
+            last_x_        = x_pos;
+            last_y_        = y_pos;
 
-        case interface::EventType::KeyUp:
-            pressed_keys_.erase(event.key.key);
-            break;
-
-        case interface::EventType::MouseButtonDown:
-            last_x_ = event.mouse_button.x;
-            last_y_ = event.mouse_button.y;
-            if (event.mouse_button.button == interface::MouseButton::Right)
+            if (free_look_mode_)
             {
-                free_look_mode_ = true;
-            }
-            else if (event.mouse_button.button == interface::MouseButton::Middle)
-            {
-                camera_pan_mode_ = true;
-            }
-            break;
-
-        case interface::EventType::MouseButtonUp:
-            if (event.mouse_button.button == interface::MouseButton::Right)
-            {
-                free_look_mode_ = false;
-            }
-            else if (event.mouse_button.button == interface::MouseButton::Middle)
-            {
-                camera_pan_mode_ = false;
-            }
-            break;
-
-        case interface::EventType::MouseMove:
-            if (!free_look_mode_ && !camera_pan_mode_)
-            {
-                break;
-            }
-
-            {
-                float x_pos    = event.mouse_move.x;
-                float y_pos    = event.mouse_move.y;
-                float x_offset = x_pos - last_x_;
-                float y_offset = last_y_ - y_pos;
-                last_x_        = x_pos;
-                last_y_        = y_pos;
-
-                if (free_look_mode_)
+                float sensitivity_scale = 1.0F;
+                if (camera_.has_focus_point && camera_.focus_constraint_enabled_)
                 {
-                    float sensitivity_scale = 1.0F;
-                    if (camera_.has_focus_point && camera_.focus_constraint_enabled_)
-                    {
-                        float current_distance = glm::length(camera_.position - camera_.focus_point);
-                        float distance_factor  = glm::clamp(current_distance / camera_.focus_distance,
-                                                           camera_.min_focus_distance / camera_.focus_distance,
-                                                           camera_.max_focus_distance / camera_.focus_distance);
-                        sensitivity_scale      = distance_factor;
-                    }
-
-                    float actual_x_offset = x_offset * camera_.mouse_sensitivity * sensitivity_scale;
-                    float actual_y_offset = y_offset * camera_.mouse_sensitivity * sensitivity_scale;
-
-                    camera_.yaw += actual_x_offset;
-                    camera_.pitch += actual_y_offset;
-
-                    camera_.pitch = std::min(camera_.pitch, 89.0F);
-                    camera_.pitch = std::max(camera_.pitch, -89.0F);
-
-                    camera_.UpdateCameraVectors();
+                    float current_distance = glm::length(camera_.position - camera_.focus_point);
+                    float distance_factor  = glm::clamp(current_distance / camera_.focus_distance,
+                                                        camera_.min_focus_distance / camera_.focus_distance,
+                                                        camera_.max_focus_distance / camera_.focus_distance);
+                    sensitivity_scale = distance_factor;
                 }
 
-                if (camera_pan_mode_)
-                {
-                    float current_distance = camera_.has_focus_point
-                                                 ? glm::length(camera_.position - camera_.focus_point)
-                                                 : camera_.focus_distance;
+                float actual_x_offset = x_offset * camera_.mouse_sensitivity * sensitivity_scale;
+                float actual_y_offset = y_offset * camera_.mouse_sensitivity * sensitivity_scale;
 
-                    float distance_scale = glm::clamp(current_distance / camera_.focus_distance,
-                                                      camera_.min_focus_distance / camera_.focus_distance,
-                                                      camera_.max_focus_distance / camera_.focus_distance);
+                camera_.yaw += actual_x_offset;
+                camera_.pitch += actual_y_offset;
 
-                    float pan_speed_multiplier = 0.005F;
-                    float actual_pan_speed_multiplier =
-                        camera_.focus_constraint_enabled_ ? pan_speed_multiplier / distance_scale : pan_speed_multiplier;
+                camera_.pitch = std::min(camera_.pitch, 89.0F);
+                camera_.pitch = std::max(camera_.pitch, -89.0F);
 
-                    float target_x_offset = x_offset * camera_.movement_speed * actual_pan_speed_multiplier;
-                    float target_y_offset = y_offset * camera_.movement_speed * actual_pan_speed_multiplier;
-
-                    camera_.position -= camera_.right * target_x_offset;
-                    camera_.position += camera_.up * target_y_offset;
-                }
+                camera_.UpdateCameraVectors();
             }
-            break;
 
-        case interface::EventType::MouseWheel:
+            if (camera_pan_mode_)
             {
-                float zoom_factor = camera_.wheel_speed;
-                float distance    = glm::length(camera_.position);
+                float current_distance = camera_.has_focus_point
+                                             ? glm::length(camera_.position - camera_.focus_point)
+                                             : camera_.focus_distance;
 
-                if (event.mouse_wheel.y > 0)
-                {
-                    if (distance > 0.5F)
-                    {
-                        camera_.position *= (1.0F - zoom_factor);
-                    }
-                }
-                else if (event.mouse_wheel.y < 0)
-                {
-                    camera_.position *= (1.0F + zoom_factor);
-                }
+                float distance_scale = glm::clamp(current_distance / camera_.focus_distance,
+                                                  camera_.min_focus_distance / camera_.focus_distance,
+                                                  camera_.max_focus_distance / camera_.focus_distance);
 
-                process_mouse_scroll(event.mouse_wheel.y);
+                float pan_speed_multiplier        = 0.005F;
+                float actual_pan_speed_multiplier =
+                    camera_.focus_constraint_enabled_ ? pan_speed_multiplier / distance_scale : pan_speed_multiplier;
+
+                float target_x_offset = x_offset * camera_.movement_speed * actual_pan_speed_multiplier;
+                float target_y_offset = y_offset * camera_.movement_speed * actual_pan_speed_multiplier;
+
+                camera_.position -= camera_.right * target_x_offset;
+                camera_.position += camera_.up * target_y_offset;
             }
-            break;
-            
-        default:
-            break;
+        }
+        break;
+
+    case interface::EventType::MouseWheel:
+    {
+        float zoom_factor = camera_.wheel_speed;
+        float distance    = glm::length(camera_.position);
+
+        if (event.mouse_wheel.y > 0)
+        {
+            if (distance > 0.5F)
+            {
+                camera_.position *= (1.0F - zoom_factor);
+            }
+        }
+        else if (event.mouse_wheel.y < 0)
+        {
+            camera_.position *= (1.0F + zoom_factor);
+        }
+
+        process_mouse_scroll(event.mouse_wheel.y);
+    }
+    break;
+
+    default:
+        break;
     }
 }
 
@@ -468,8 +469,8 @@ void VulkanSample::process_keyboard_input(float delta_time)
         {
             float current_distance = glm::length(camera_.position - camera_.focus_point);
             distance_scale         = glm::clamp(current_distance / camera_.focus_distance,
-                                        camera_.min_focus_distance / camera_.focus_distance,
-                                        camera_.max_focus_distance / camera_.focus_distance);
+                                                camera_.min_focus_distance / camera_.focus_distance,
+                                                camera_.max_focus_distance / camera_.focus_distance);
         }
         float current_velocity = velocity / distance_scale; // Slower when closer
 
@@ -499,11 +500,11 @@ void VulkanSample::process_keyboard_input(float delta_time)
         // move up/down (Y-axis relative to world or camera up)
         if (pressed_keys_.count(interface::KeyCode::Q))
         {
-            movement += camera_.up * current_velocity; // Using camera's up vector for local up/down
+            movement -= camera_.up * current_velocity; // Using camera's up vector for local up/down
         }
         if (pressed_keys_.count(interface::KeyCode::E))
         {
-            movement -= camera_.up * current_velocity; // Using camera's up vector for local up/down
+            movement += camera_.up * current_velocity; // Using camera's up vector for local up/down
         }
 
         // apply the movement
@@ -528,7 +529,7 @@ void VulkanSample::process_keyboard_input(float delta_time)
         if (pressed_keys_.count(interface::KeyCode::A) || pressed_keys_.count(interface::KeyCode::Left))
         {
             movement.x -= velocity; // move left (l-axis negative direction)X-axis
-                                    // negative direction)
+            // negative direction)
         }
         if (pressed_keys_.count(interface::KeyCode::D) || pressed_keys_.count(interface::KeyCode::Right))
         {
@@ -562,8 +563,8 @@ void VulkanSample::process_mouse_scroll(float yoffset)
         // Calculate distance scale
         float current_distance = glm::length(camera_.position - camera_.focus_point);
         float distance_scale   = glm::clamp(current_distance / camera_.focus_distance,
-                                          camera_.min_focus_distance / camera_.focus_distance,
-                                          camera_.max_focus_distance / camera_.focus_distance);
+                                            camera_.min_focus_distance / camera_.focus_distance,
+                                            camera_.max_focus_distance / camera_.focus_distance);
         zoom_step /= distance_scale; // Smaller steps when closer
 
         if (yoffset > 0)
@@ -614,7 +615,7 @@ void VulkanSample::generate_frame_structs()
 
 bool VulkanSample::create_instance()
 {
-    auto extensions     = window_->GetRequiredInstanceExtensions();
+    auto extensions     = window_->get_required_instance_extensions();
     auto instance_chain = common::instance::create_context() | common::instance::set_application_name("My Vulkan App") |
                           common::instance::set_engine_name("My Engine") |
                           common::instance::set_api_version(1, 3, 0) |
@@ -632,14 +633,14 @@ bool VulkanSample::create_instance()
     }
     auto context      = std::get<templates::common::CommVkInstanceContext>(result);
     comm_vk_instance_ = context.vk_instance_;
-    VULKAN_HPP_DEFAULT_DISPATCHER.init(comm_vk_instance_);  // a must for loading all other function pointers!
+    VULKAN_HPP_DEFAULT_DISPATCHER.init(comm_vk_instance_); // a must for loading all other function pointers!
     std::cout << "Successfully created Vulkan instance." << '\n';
     return true;
 }
 
 bool VulkanSample::create_surface()
 {
-    return window_->CreateSurface(comm_vk_instance_, &surface_);
+    return window_->create_vulkan_surface(comm_vk_instance_, &surface_);
 }
 
 bool VulkanSample::create_physical_device()
@@ -688,8 +689,8 @@ bool VulkanSample::create_logical_device()
     }
     comm_vk_logical_device_context_ = std::get<common::CommVkLogicalDeviceContext>(result);
     comm_vk_logical_device_         = comm_vk_logical_device_context_.vk_logical_device_;
-    comm_vk_graphics_queue_ = common::logicaldevice::get_queue(comm_vk_logical_device_context_, "main_graphics");
-    comm_vk_transfer_queue_ = common::logicaldevice::get_queue(comm_vk_logical_device_context_, "upload");
+    comm_vk_graphics_queue_         = common::logicaldevice::get_queue(comm_vk_logical_device_context_, "main_graphics");
+    comm_vk_transfer_queue_         = common::logicaldevice::get_queue(comm_vk_logical_device_context_, "upload");
     std::cout << "Successfully created Vulkan logical device." << '\n';
     return true;
 }
@@ -776,8 +777,8 @@ bool VulkanSample::create_uniform_buffers()
 
     VmaAllocationCreateInfo allocation_create_info = {};
     allocation_create_info.usage                   = VMA_MEMORY_USAGE_AUTO;
-    allocation_create_info.flags = vra_data_batcher_->GetSuggestVmaMemoryFlags(vra::VraDataMemoryPattern::CPU_GPU,
-                                                                               vra::VraDataUpdateRate::Frequent);
+    allocation_create_info.flags                   = vra_data_batcher_->GetSuggestVmaMemoryFlags(vra::VraDataMemoryPattern::CPU_GPU,
+                                                                                                 vra::VraDataUpdateRate::Frequent);
     allocation_create_info.requiredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
     return Logger::LogWithVkResult(vmaCreateBuffer(vma_allocator_,
                                                    &uniform_buffer_create_info,
@@ -828,17 +829,17 @@ bool VulkanSample::create_and_write_descriptor_relatives()
     {
         .buffer = uniform_buffer_,
         .offset = 0,
-        .range  = VK_WHOLE_SIZE
+        .range = VK_WHOLE_SIZE
     };
     std::vector<vk::WriteDescriptorSet> write_descriptor_sets(descriptor_sets_.size());
     for (size_t i = 0; i < descriptor_sets_.size(); ++i)
     {
-        write_descriptor_sets[i] = {.dstSet          = descriptor_sets_[i],
-                                    .dstBinding      = 0,
+        write_descriptor_sets[i] = {.dstSet = descriptor_sets_[i],
+                                    .dstBinding = 0,
                                     .dstArrayElement = 0,
                                     .descriptorCount = 1,
-                                    .descriptorType  = vk::DescriptorType::eUniformBufferDynamic,
-                                    .pBufferInfo     = &descriptor_buffer_info};
+                                    .descriptorType = vk::DescriptorType::eUniformBufferDynamic,
+                                    .pBufferInfo = &descriptor_buffer_info};
     }
     comm_vk_logical_device_.updateDescriptorSets(write_descriptor_sets, {});
     return true;
@@ -895,9 +896,9 @@ bool VulkanSample::create_depth_resources()
     vk::ImageCreateInfo image_info;
     image_info.setImageType(vk::ImageType::e2D)
         .setExtent({
-            .width=comm_vk_swapchain_context_.swapchain_info_.extent_.width,
-            .height=comm_vk_swapchain_context_.swapchain_info_.extent_.height,
-            .depth=1})
+            .width = comm_vk_swapchain_context_.swapchain_info_.extent_.width,
+            .height = comm_vk_swapchain_context_.swapchain_info_.extent_.height,
+            .depth = 1})
         .setMipLevels(1)
         .setArrayLayers(1)
         .setFormat(depth_format_)
@@ -955,11 +956,11 @@ bool VulkanSample::create_depth_resources()
         .setViewType(vk::ImageViewType::e2D)
         .setFormat(depth_format_)
         .setSubresourceRange(vk::ImageSubresourceRange()
-                                 .setAspectMask(vk::ImageAspectFlagBits::eDepth)
-                                 .setBaseMipLevel(0)
-                                 .setLevelCount(1)
-                                 .setBaseArrayLayer(0)
-                                 .setLayerCount(1));
+            .setAspectMask(vk::ImageAspectFlagBits::eDepth)
+            .setBaseMipLevel(0)
+            .setLevelCount(1)
+            .setBaseArrayLayer(0)
+            .setLayerCount(1));
 
     if (comm_vk_logical_device_.createImageView(&view_info, nullptr, &depth_image_view_) != vk::Result::eSuccess)
     {
@@ -1032,15 +1033,15 @@ bool VulkanSample::create_pipeline()
 
     // create pipeline
     SVulkanPipelineConfig pipeline_config{
-        .swap_chain_extent                   = comm_vk_swapchain_context_.swapchain_info_.extent_,
-        .shader_module_map                   = {{EShaderType::kVertexShader,
-                                                 vk_shader_helper_->GetShaderModule(EShaderType::kVertexShader)},
-                                                {EShaderType::kFragmentShader,
-                                                 vk_shader_helper_->GetShaderModule(EShaderType::kFragmentShader)}},
-        .renderpass                          = vk_renderpass_helper_->GetRenderpass(),
-        .vertex_input_binding_description    = test_vertex_input_binding_description_,
+        .swap_chain_extent = comm_vk_swapchain_context_.swapchain_info_.extent_,
+        .shader_module_map = {{EShaderType::kVertexShader,
+                               vk_shader_helper_->GetShaderModule(EShaderType::kVertexShader)},
+                              {EShaderType::kFragmentShader,
+                               vk_shader_helper_->GetShaderModule(EShaderType::kFragmentShader)}},
+        .renderpass = vk_renderpass_helper_->GetRenderpass(),
+        .vertex_input_binding_description = test_vertex_input_binding_description_,
         .vertex_input_attribute_descriptions = test_vertex_input_attributes_,
-        .descriptor_set_layouts              = {descriptor_set_layout_}};
+        .descriptor_set_layouts = {descriptor_set_layout_}};
     // pipeline_config.vertex_input_binding_description =
     // vertex_input_binding_description_;
     // pipeline_config.vertex_input_attribute_descriptions =
@@ -1054,8 +1055,8 @@ bool VulkanSample::allocate_per_frame_command_buffer()
     for (int i = 0; i < engine_config_.frame_count; ++i)
     {
         if (!vk_command_buffer_helper_->AllocateCommandBuffer(
-                {.command_buffer_level = vk::CommandBufferLevel::ePrimary, .command_buffer_count = 1},
-                output_frames_[i].command_buffer_id))
+            {.command_buffer_level = vk::CommandBufferLevel::ePrimary, .command_buffer_count = 1},
+            output_frames_[i].command_buffer_id))
         {
             Logger::LogError("Failed to allocate command buffer for frame " + std::to_string(i));
             return false;
@@ -1104,9 +1105,9 @@ void VulkanSample::draw_frame()
 
     // acquire next image
     auto acquire_result = comm_vk_logical_device_.acquireNextImageKHR(
-        comm_vk_swapchain_, 
-        UINT64_MAX, 
-        image_available_semaphore, 
+        comm_vk_swapchain_,
+        UINT64_MAX,
+        image_available_semaphore,
         VK_NULL_HANDLE);
     if (acquire_result.result == vk::Result::eErrorOutOfDateKHR || acquire_result.result == vk::Result::eSuboptimalKHR)
     {
@@ -1139,22 +1140,22 @@ void VulkanSample::draw_frame()
     vk::SemaphoreSubmitInfo signal_semaphore_info{.semaphore = render_finished_semaphore, .value = 1};
 
     vk::SubmitInfo2 submit_info{
-        .waitSemaphoreInfoCount   = 1,
-        .pWaitSemaphoreInfos      = &wait_semaphore_info,
-        .commandBufferInfoCount   = 1,
-        .pCommandBufferInfos      = &command_buffer_submit_info,
+        .waitSemaphoreInfoCount = 1,
+        .pWaitSemaphoreInfos = &wait_semaphore_info,
+        .commandBufferInfoCount = 1,
+        .pCommandBufferInfos = &command_buffer_submit_info,
         .signalSemaphoreInfoCount = 1,
-        .pSignalSemaphoreInfos    = &signal_semaphore_info,
+        .pSignalSemaphoreInfos = &signal_semaphore_info,
     };
     comm_vk_graphics_queue_.submit2(submit_info, in_flight_fence);
     Logger::LogInfo("Succeeded in submitting command buffer");
 
     // present the image
     vk::PresentInfoKHR present_info{.waitSemaphoreCount = 1,
-                                    .pWaitSemaphores    = &render_finished_semaphore,
-                                    .swapchainCount     = 1,
-                                    .pSwapchains        = &comm_vk_swapchain_,
-                                    .pImageIndices      = &acquire_result.value};
+                                    .pWaitSemaphores = &render_finished_semaphore,
+                                    .swapchainCount = 1,
+                                    .pSwapchains = &comm_vk_swapchain_,
+                                    .pImageIndices = &acquire_result.value};
 
     auto res = comm_vk_graphics_queue_.presentKHR(&present_info);
     if (res == vk::Result::eErrorOutOfDateKHR || res == vk::Result::eSuboptimalKHR)
@@ -1190,7 +1191,7 @@ void VulkanSample::resize_swapchain()
 
     // reset window size
     int width, height;
-    window_->GetExtent(width, height);
+    window_->get_extent(width, height);
     engine_config_.window_config.width  = width;
     engine_config_.window_config.height = height;
 
@@ -1226,36 +1227,36 @@ bool VulkanSample::record_command(uint32_t image_index, const std::string& comma
     vk::BufferCopy buffer_copy_info{
         .srcOffset = buffer_copy_info.srcOffset = 0,
         .dstOffset = buffer_copy_info.dstOffset = 0,
-        .size = buffer_copy_info.size = test_staging_buffer_allocation_info_.size,
+        .size = buffer_copy_info.size           = test_staging_buffer_allocation_info_.size,
     };
     command_buffer.copyBuffer(test_staging_buffer_, test_local_buffer_, 1, &buffer_copy_info);
 
     // 设置内存屏障以确保复制完成
     vk::BufferMemoryBarrier2 buffer_memory_barrier{
-        .srcStageMask  = vk::PipelineStageFlagBits2::eTransfer,
+        .srcStageMask = vk::PipelineStageFlagBits2::eTransfer,
         .srcAccessMask = vk::AccessFlagBits2::eTransferWrite,
-        .dstStageMask  = vk::PipelineStageFlagBits2::eVertexInput,
+        .dstStageMask = vk::PipelineStageFlagBits2::eVertexInput,
         .dstAccessMask = vk::AccessFlagBits2::eVertexAttributeRead,
-        .buffer        = test_local_buffer_,
-        .offset        = 0,
-        .size          = VK_WHOLE_SIZE,
+        .buffer = test_local_buffer_,
+        .offset = 0,
+        .size = VK_WHOLE_SIZE,
     };
 
     vk::DependencyInfo dependency_info{.bufferMemoryBarrierCount = 1, .pBufferMemoryBarriers = &buffer_memory_barrier};
     command_buffer.pipelineBarrier2(&dependency_info);
 
     // begin renderpass
-    
+
     vk::ClearValue clear_values_color{.color = {std::array<float, 4>{0.1F, 0.1F, 0.1F, 1.0F}}};
     vk::ClearValue clear_value_depth{.depthStencil = {.depth = 1.0F, .stencil = 0}};
     std::vector<vk::ClearValue> clear_values = {clear_values_color, clear_value_depth};
 
     vk::RenderPassBeginInfo renderpass_info{
-        .renderPass      = vk_renderpass_helper_->GetRenderpass(),
-        .framebuffer     = (*vk_frame_buffer_helper_->GetFramebuffers())[image_index],
-        .renderArea      = {.offset = {.x = 0, .y = 0}, .extent = comm_vk_swapchain_context_.swapchain_info_.extent_},
+        .renderPass = vk_renderpass_helper_->GetRenderpass(),
+        .framebuffer = (*vk_frame_buffer_helper_->GetFramebuffers())[image_index],
+        .renderArea = {.offset = {.x = 0, .y = 0}, .extent = comm_vk_swapchain_context_.swapchain_info_.extent_},
         .clearValueCount = static_cast<uint32_t>(clear_values.size()),
-        .pClearValues    = clear_values.data()};
+        .pClearValues = clear_values.data()};
 
     command_buffer.beginRenderPass(renderpass_info, vk::SubpassContents::eInline);
 
@@ -1275,10 +1276,10 @@ bool VulkanSample::record_command(uint32_t image_index, const std::string& comma
                                       &dynamic_offset);
 
     // dynamic state update
-    vk::Viewport viewport{.x        = 0.0F,
-                          .y        = 0.0F,
-                          .width    = static_cast<float>(comm_vk_swapchain_context_.swapchain_info_.extent_.width),
-                          .height   = static_cast<float>(comm_vk_swapchain_context_.swapchain_info_.extent_.height),
+    vk::Viewport viewport{.x = 0.0F,
+                          .y = 0.0F,
+                          .width = static_cast<float>(comm_vk_swapchain_context_.swapchain_info_.extent_.width),
+                          .height = static_cast<float>(comm_vk_swapchain_context_.swapchain_info_.extent_.height),
                           .minDepth = 0.0F,
                           .maxDepth = 1.0F};
     command_buffer.setViewport(0, 1, &viewport);
@@ -1307,9 +1308,11 @@ bool VulkanSample::record_command(uint32_t image_index, const std::string& comma
         for (const auto& primitive : mesh.primitives)
         {
             // 绘制当前图元
-            command_buffer.drawIndexed(primitive.index_count, // 使用实际的索引数量
+            command_buffer.drawIndexed(primitive.index_count,
+                                       // 使用实际的索引数量
                                        1,
-                                       primitive.first_index, // 使用实际的索引偏移量
+                                       primitive.first_index,
+                                       // 使用实际的索引偏移量
                                        0,
                                        0);
         }
@@ -1328,19 +1331,24 @@ void VulkanSample::update_uniform_buffer(uint32_t current_frame_index)
     mvp_matrices_[current_frame_index].model = glm::mat4(1.0F);
 
     // update the view matrix
-    mvp_matrices_[current_frame_index].view = glm::lookAt(camera_.position,                 // camera position
-                                                          camera_.position + camera_.front, // camera looking at point
-                                                          camera_.up                        // camera up direction
-    );
+    mvp_matrices_[current_frame_index].view = glm::lookAt(camera_.position,
+                                                          // camera position
+                                                          camera_.position + camera_.front,
+                                                          // camera looking at point
+                                                          camera_.up // camera up direction
+        );
 
     // update the projection matrix
     mvp_matrices_[current_frame_index].projection = glm::perspective(
-        glm::radians(camera_.zoom), // FOV
+        glm::radians(camera_.zoom),
+        // FOV
         static_cast<float>(comm_vk_swapchain_context_.swapchain_info_.extent_.width) /
-            static_cast<float>(comm_vk_swapchain_context_.swapchain_info_.extent_.height), // aspect ratio
-        0.1F,                                                                              // near plane
+        static_cast<float>(comm_vk_swapchain_context_.swapchain_info_.extent_.height),
+        // aspect ratio
+        0.1F,
+        // near plane
         1000.0F // 增加远平面距离，确保能看到远处的物体
-    );
+        );
 
     // reverse the Y-axis in Vulkan's NDC coordinate system
     mvp_matrices_[current_frame_index].projection[1][1] *= -1;
@@ -1351,7 +1359,7 @@ void VulkanSample::update_uniform_buffer(uint32_t current_frame_index)
 
     // get the offset of the current frame in the uniform buffer
     auto offset = uniform_batch_handle_[vra::VraBuiltInBatchIds::CPU_GPU_Frequently]
-                      .offsets[uniform_buffer_id_[current_frame_index]];
+        .offsets[uniform_buffer_id_[current_frame_index]];
     uint8_t* data_location = static_cast<uint8_t*>(uniform_buffer_mapped_data_) + offset;
 
     // copy the data to the mapped memory
@@ -1403,7 +1411,7 @@ void VulkanSample::create_drawcall_list_buffer()
         vra::VraDataMemoryPattern::GPU_Only, vra::VraDataUpdateRate::RarelyOrNever, index_buffer_create_info};
 
     // 暂存缓冲区创建信息
-    vk::BufferCreateInfo staging_buffer_create_info{.usage       = vk::BufferUsageFlagBits::eTransferSrc,
+    vk::BufferCreateInfo staging_buffer_create_info{.usage = vk::BufferUsageFlagBits::eTransferSrc,
                                                     .sharingMode = vk::SharingMode::eExclusive};
     vra::VraDataDesc staging_vertex_buffer_desc{
         vra::VraDataMemoryPattern::CPU_GPU, vra::VraDataUpdateRate::RarelyOrNever, staging_buffer_create_info};
@@ -1452,7 +1460,8 @@ void VulkanSample::create_drawcall_list_buffer()
     VmaAllocationCreateInfo staging_allocation_create_info{};
     staging_allocation_create_info.usage = VMA_MEMORY_USAGE_AUTO;
     staging_allocation_create_info.flags = vra_data_batcher_->GetSuggestVmaMemoryFlags(
-        vra::VraDataMemoryPattern::CPU_GPU, vra::VraDataUpdateRate::RarelyOrNever);
+        vra::VraDataMemoryPattern::CPU_GPU,
+        vra::VraDataUpdateRate::RarelyOrNever);
     vmaCreateBuffer(vma_allocator_,
                     &test_host_buffer_create_info,
                     &staging_allocation_create_info,
@@ -1481,24 +1490,24 @@ void VulkanSample::create_drawcall_list_buffer()
     // position
     test_vertex_input_attributes_.emplace_back(
         vk::VertexInputAttributeDescription{.location = 0,
-                                            .binding  = 0,
-                                            .format   = vk::Format::eR32G32B32Sfloat,
-                                            .offset   = offsetof(gltf::Vertex, position)});
+                                            .binding = 0,
+                                            .format = vk::Format::eR32G32B32Sfloat,
+                                            .offset = offsetof(gltf::Vertex, position)});
     // color
     test_vertex_input_attributes_.emplace_back(
         vk::VertexInputAttributeDescription{.location = 1,
-                                            .binding  = 0,
-                                            .format   = vk::Format::eR32G32B32A32Sfloat,
-                                            .offset   = offsetof(gltf::Vertex, color)});
+                                            .binding = 0,
+                                            .format = vk::Format::eR32G32B32A32Sfloat,
+                                            .offset = offsetof(gltf::Vertex, color)});
     // normal
     test_vertex_input_attributes_.emplace_back(vk::VertexInputAttributeDescription{
         .location = 2, .binding = 0, .format = vk::Format::eR32G32B32Sfloat, .offset = offsetof(gltf::Vertex, normal)});
     // tangent
     test_vertex_input_attributes_.emplace_back(
         vk::VertexInputAttributeDescription{.location = 3,
-                                            .binding  = 0,
-                                            .format   = vk::Format::eR32G32B32A32Sfloat,
-                                            .offset   = offsetof(gltf::Vertex, tangent)});
+                                            .binding = 0,
+                                            .format = vk::Format::eR32G32B32A32Sfloat,
+                                            .offset = offsetof(gltf::Vertex, tangent)});
     // uv0
     test_vertex_input_attributes_.emplace_back(vk::VertexInputAttributeDescription{
         .location = 4, .binding = 0, .format = vk::Format::eR32G32Sfloat, .offset = offsetof(gltf::Vertex, uv0)});

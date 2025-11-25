@@ -35,6 +35,7 @@ namespace interface
 
     enum class EventType
     {
+        None, 
         Quit,
         Resize,
         KeyDown,
