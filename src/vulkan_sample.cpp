@@ -1068,16 +1068,32 @@ bool VulkanSample::allocate_per_frame_command_buffer()
 bool VulkanSample::create_synchronization_objects()
 {
     vk_synchronization_helper_ = std::make_unique<VulkanSynchronizationHelper>(comm_vk_logical_device_);
-    // create synchronization objects
+
+    // Create synchronization objects per frame-in-flight
     for (int i = 0; i < engine_config_.frame_count; ++i)
     {
         if (!vk_synchronization_helper_->CreateVkSemaphore(output_frames_[i].image_available_semaphore_id))
             return false;
-        if (!vk_synchronization_helper_->CreateVkSemaphore(output_frames_[i].render_finished_semaphore_id))
-            return false;
+
+        // Note: Do NOT create the per-frame render_finished_semaphore here anymore.
+        // We will use per-image semaphores instead.
+        // if (!vk_synchronization_helper_->CreateVkSemaphore(output_frames_[i].render_finished_semaphore_id))
+        //    return false;
+
         if (!vk_synchronization_helper_->CreateFence(output_frames_[i].fence_id))
             return false;
     }
+
+    // Create render_finished semaphores per swapchain image
+    const auto swapchain_images = comm_vk_logical_device_.getSwapchainImagesKHR(comm_vk_swapchain_);
+    for (size_t i = 0; i < swapchain_images.size(); ++i)
+    {
+        // Use a unique ID based on the image index
+        std::string id = "render_finished_semaphore_image_" + std::to_string(i);
+        if (!vk_synchronization_helper_->CreateVkSemaphore(id))
+            return false;
+    }
+
     return true;
 }
 
@@ -1090,17 +1106,15 @@ void VulkanSample::draw_frame()
     // get current resource
     auto current_fence_id                     = output_frames_[frame_index_].fence_id;
     auto current_image_available_semaphore_id = output_frames_[frame_index_].image_available_semaphore_id;
-    auto current_render_finished_semaphore_id = output_frames_[frame_index_].render_finished_semaphore_id;
+    // REMOVE or IGNORE the per-frame render_finished_semaphore_id
     auto current_command_buffer_id            = output_frames_[frame_index_].command_buffer_id;
-    auto current_queue_id                     = output_frames_[frame_index_].queue_id;
 
-    // wait for last frame to finish
+    // wait for the last frame to finish
     if (!vk_synchronization_helper_->WaitForFence(current_fence_id))
         return;
 
     // get semaphores
     auto image_available_semaphore = vk_synchronization_helper_->GetSemaphore(current_image_available_semaphore_id);
-    auto render_finished_semaphore = vk_synchronization_helper_->GetSemaphore(current_render_finished_semaphore_id);
     auto in_flight_fence           = vk_synchronization_helper_->GetFence(current_fence_id);
 
     // acquire next image
@@ -1109,17 +1123,19 @@ void VulkanSample::draw_frame()
         UINT64_MAX,
         image_available_semaphore,
         VK_NULL_HANDLE);
-    if (acquire_result.result == vk::Result::eErrorOutOfDateKHR || acquire_result.result == vk::Result::eSuboptimalKHR)
+
+    // ... (error checks for acquire_result) ...
+    if (acquire_result.result != vk::Result::eSuccess && acquire_result.result != vk::Result::eSuboptimalKHR)
     {
-        resize_request_ = true;
+        // Handle resize or error
+        if (acquire_result.result == vk::Result::eErrorOutOfDateKHR) resize_request_ = true;
         return;
     }
-    if (acquire_result.result != vk::Result::eSuccess)
-    {
-        Logger::LogError("Failed to acquire next image");
-        return;
-    }
-    Logger::LogInfo("Succeeded in acquiring next image");
+
+    // [FIX] Get the semaphore associated with the ACQUIRED IMAGE INDEX
+    uint32_t image_index = acquire_result.value;
+    std::string render_finished_sem_id = "render_finished_semaphore_image_" + std::to_string(image_index);
+    auto render_finished_semaphore = vk_synchronization_helper_->GetSemaphore(render_finished_sem_id);
 
     // reset fence before submitting
     if (!vk_synchronization_helper_->ResetFence(current_fence_id))
@@ -1128,7 +1144,7 @@ void VulkanSample::draw_frame()
     // record command buffer
     if (!vk_command_buffer_helper_->ResetCommandBuffer(current_command_buffer_id))
         return;
-    if (!record_command(acquire_result.value, current_command_buffer_id))
+    if (!record_command(image_index, current_command_buffer_id))
         return;
 
     // submit command buffer
@@ -1137,6 +1153,7 @@ void VulkanSample::draw_frame()
 
     vk::SemaphoreSubmitInfo wait_semaphore_info{.semaphore = image_available_semaphore, .value = 1};
 
+    // Use the per-image semaphore here
     vk::SemaphoreSubmitInfo signal_semaphore_info{.semaphore = render_finished_semaphore, .value = 1};
 
     vk::SubmitInfo2 submit_info{
@@ -1148,11 +1165,10 @@ void VulkanSample::draw_frame()
         .pSignalSemaphoreInfos = &signal_semaphore_info,
     };
     comm_vk_graphics_queue_.submit2(submit_info, in_flight_fence);
-    Logger::LogInfo("Succeeded in submitting command buffer");
 
     // present the image
     vk::PresentInfoKHR present_info{.waitSemaphoreCount = 1,
-                                    .pWaitSemaphores = &render_finished_semaphore,
+                                    .pWaitSemaphores = &render_finished_semaphore, // Use the per-image semaphore here too
                                     .swapchainCount = 1,
                                     .pSwapchains = &comm_vk_swapchain_,
                                     .pImageIndices = &acquire_result.value};
