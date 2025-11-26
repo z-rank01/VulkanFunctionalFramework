@@ -65,7 +65,7 @@ bool VulkanSynchronizationHelper::WaitForFence(std::string id)
         Logger::LogError("Failed to wait for fence " + id);
         return false;
     }
-    Logger::LogInfo("Successfully waited for fence " + id);
+    // Logger::LogInfo("Successfully waited for fence " + id);
     return true;
 }
 
@@ -76,7 +76,7 @@ bool VulkanSynchronizationHelper::ResetFence(std::string id)
         Logger::LogError("Failed to reset fence " + id);
         return false;
     }
-    Logger::LogInfo("Succeeded in resetting fence " + id);
+    // Logger::LogInfo("Succeeded in resetting fence " + id);
     return true;
 }
 

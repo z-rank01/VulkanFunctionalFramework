@@ -93,14 +93,14 @@ bool VulkanCommandBufferHelper::BeginCommandBufferRecording(std::string id, vk::
         Logger::LogInfo("Failed to begin command buffer recording");
         return false;
     }
-    Logger::LogInfo("Succeeded in beginning command buffer recording");
+    // Logger::LogInfo("Succeeded in beginning command buffer recording");
     return true;
 }
 
 bool VulkanCommandBufferHelper::EndCommandBufferRecording(std::string id)
 {
     command_buffer_map_[id].end();
-    Logger::LogInfo("Succeeded in ending command buffer recording");
+    // Logger::LogInfo("Succeeded in ending command buffer recording");
     return true;
 }
 
@@ -108,6 +108,6 @@ bool VulkanCommandBufferHelper::ResetCommandBuffer(std::string id)
 {
     // reset command buffer
     command_buffer_map_.at(id).reset();
-    Logger::LogInfo("Succeeded in resetting command buffer");
+    // Logger::LogInfo("Succeeded in resetting command buffer");
     return true;
 }

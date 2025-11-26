@@ -534,7 +534,7 @@ bool VulkanSample::create_and_write_descriptor_relatives()
     {
         .buffer = uniform_buffer_,
         .offset = 0,
-        .range = VK_WHOLE_SIZE
+        .range = sizeof(SMvpMatrix)
     };
     std::vector<vk::WriteDescriptorSet> write_descriptor_sets(descriptor_sets_.size());
     for (size_t i = 0; i < descriptor_sets_.size(); ++i)
@@ -889,7 +889,7 @@ void VulkanSample::draw_frame()
         Logger::LogError("Failed to present image");
         return;
     }
-    Logger::LogInfo("Succeeded in presenting image");
+    // Logger::LogInfo("Succeeded in presenting image");
 
     // update frame index
     frame_index_ = (frame_index_ + 1) % engine_config_.frame_count;
