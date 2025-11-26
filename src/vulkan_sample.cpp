@@ -1048,28 +1048,6 @@ bool VulkanSample::record_command(uint32_t image_index, const std::string& comma
 
 void VulkanSample::update_uniform_buffer(uint32_t current_frame_index)
 {
-    // // update the model matrix (添加适当的缩放)
-    // mvp_matrices_[current_frame_index].model = glm::mat4(1.0F);
-    //
-    // // update the view matrix
-    // mvp_matrices_[current_frame_index].view = glm::lookAt(camera_.position,
-    //                                                       // camera position
-    //                                                       camera_.position + camera_.front,
-    //                                                       // camera looking at point
-    //                                                       camera_.up // camera up direction
-    //     );
-    //
-    // // update the projection matrix
-    // mvp_matrices_[current_frame_index].projection = glm::perspective(
-    //     glm::radians(camera_.zoom),
-    //     // FOV
-    //     static_cast<float>(comm_vk_swapchain_context_.swapchain_info_.extent_.width) /
-    //     static_cast<float>(comm_vk_swapchain_context_.swapchain_info_.extent_.height),
-    //     // aspect ratio
-    //     0.1F,
-    //     // near plane
-    //     1000.0F // 增加远平面距离，确保能看到远处的物体
-    //     );
     mvp_matrices_[current_frame_index].model = simple_camera_->get_matrix(interface::TransformMatrixType::kModel);
     mvp_matrices_[current_frame_index].view  = simple_camera_->get_matrix(interface::TransformMatrixType::kView);
     mvp_matrices_[current_frame_index].projection = simple_camera_->get_matrix(interface::TransformMatrixType::kProjection);
