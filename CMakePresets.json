@@ -49,7 +49,7 @@
         "VCPKG_CMAKE_SYSTEM_NAME": "MinGW"
       },
       "cacheVariables": {
-        "VCPKG_TARGET_TRIPLET": "x64-mingw-static",
+        "VCPKG_TARGET_TRIPLET": "x64-windows-static",
         "CMAKE_C_COMPILER": "C:/Program Files/msys64/ucrt64/bin/gcc.exe",
         "CMAKE_CXX_COMPILER": "C:/Program Files/msys64/ucrt64/bin/g++.exe"
       }
