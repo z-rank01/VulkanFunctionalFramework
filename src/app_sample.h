@@ -3,16 +3,16 @@
 #include "_interface/camera.h"
 #include "_interface/window.h"
 
-struct SWindowConfig
+struct window_config
 {
-    int width_;
-    int height_;
-    std::string title_;
-    [[nodiscard]] constexpr auto validate() const -> bool { return width_ > 0 && height_ > 0; }
+    int width;
+    int height;
+    std::string title;
+    [[nodiscard]] constexpr auto validate() const -> bool { return width > 0 && height > 0; }
 };
 
 
-class AppSample
+class app_sample
 {
 public:
     // core public function
@@ -22,6 +22,6 @@ public:
 private:
     // core member
     std::unique_ptr<interface::Window> window_;
-    std::unique_ptr<interface::Camera> camera_;
-    SWindowConfig window_config_;
+    std::unique_ptr<interface::camera> camera_;
+    window_config window_config_;
 };

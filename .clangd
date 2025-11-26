@@ -26,7 +26,6 @@ Diagnostics:
     Add: 
       - clang-diagnostic-*
       - clang-analyzer-*
-      - google-*
       - modernize-*
       - performance-*
       - readability-*
@@ -35,10 +34,6 @@ Diagnostics:
       - misc-*
     
     Remove:
-      - google-readability-todo
-      - google-readability-braces-around-statements
-      - google-readability-casting
-      - google-build-using-namespace
       - readability-braces-around-statements
       - readability-magic-numbers
       - readability-named-parameter
@@ -58,13 +53,15 @@ Diagnostics:
       - cppcoreguidelines-pro-bounds-constant-array-index
       - cppcoreguidelines-pro-type-vararg
     
-    # Google C++ 命名规范设置
+    # C++ Core Guidelines 命名规范设置 (NL.10: 倾向于 snake_case)
     CheckOptions:
-      # 类和结构体：PascalCase
-      readability-identifier-naming.ClassCase: CamelCase
-      readability-identifier-naming.StructCase: CamelCase
+      # 类型 (类、结构体、枚举、联合)：snake_case (与标准库一致)
+      readability-identifier-naming.ClassCase: lower_case
+      readability-identifier-naming.StructCase: lower_case
+      readability-identifier-naming.EnumCase: lower_case
+      readability-identifier-naming.UnionCase: lower_case
       
-      # 函数和方法：snake_case (Google C++ 风格)
+      # 函数和方法：snake_case
       readability-identifier-naming.FunctionCase: lower_case
       readability-identifier-naming.MethodCase: lower_case
       
@@ -72,33 +69,28 @@ Diagnostics:
       readability-identifier-naming.VariableCase: lower_case
       readability-identifier-naming.ParameterCase: lower_case
       
-      # 成员变量：snake_case with trailing underscore
+      # 成员变量：snake_case (Core Guidelines 推荐与标准库一致，通常不强制后缀，但为了清晰可保留下划线)
+      # 这里我们遵循最纯粹的 Core Guidelines 风格：全小写，无强制后缀
       readability-identifier-naming.MemberCase: lower_case
-      readability-identifier-naming.MemberSuffix: '_'
       readability-identifier-naming.PrivateMemberCase: lower_case
-      readability-identifier-naming.PrivateMemberSuffix: '_'
       
-      # 常量：kCamelCase
-      readability-identifier-naming.ConstantCase: CamelCase
-      readability-identifier-naming.ConstantPrefix: 'k'
-      readability-identifier-naming.ConstantMemberCase: CamelCase
-      readability-identifier-naming.ConstantMemberPrefix: 'k'
+      # 常量 (包括全局、静态、成员)：snake_case (避免 ALL_CAPS，也不使用 k 前缀)
+      readability-identifier-naming.ConstantCase: lower_case
+      readability-identifier-naming.ConstantMemberCase: lower_case
+      readability-identifier-naming.GlobalConstantCase: lower_case
+      readability-identifier-naming.StaticConstantCase: lower_case
+      readability-identifier-naming.LocalConstantCase: lower_case
       
-      # 全局常量
-      readability-identifier-naming.GlobalConstantCase: CamelCase
-      readability-identifier-naming.GlobalConstantPrefix: 'k'
-      readability-identifier-naming.StaticConstantCase: CamelCase
-      readability-identifier-naming.StaticConstantPrefix: 'k'
+      # 枚举值：snake_case
+      readability-identifier-naming.EnumConstantCase: lower_case
       
-      # 枚举
-      readability-identifier-naming.EnumCase: CamelCase
-      readability-identifier-naming.EnumConstantCase: CamelCase
-      readability-identifier-naming.EnumConstantPrefix: 'k'
+      # 模板参数：CamelCase (通常 T, U, ValueType 等保持大写开头以区分)
+      readability-identifier-naming.TemplateParameterCase: CamelCase
       
-      # 宏定义
+      # 宏定义：UPPER_CASE (保持显眼)
       readability-identifier-naming.MacroDefinitionCase: UPPER_CASE
       
-      # 命名空间
+      # 命名空间：lower_case
       readability-identifier-naming.NamespaceCase: lower_case
       
       # 函数长度限制

@@ -70,7 +70,7 @@ int main()
 
     // window config
 
-    SWindowConfig window_config;
+    window_config window_config;
     const auto kWindowWidth  = 1280;
     const auto kWindowHeight = 720;
     const auto* window_name  = "Vulkan Engine";

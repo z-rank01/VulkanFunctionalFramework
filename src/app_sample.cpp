@@ -3,21 +3,21 @@
 #include "_interface/simple_camera.h"
 #include <stdexcept>
 
-void AppSample::initialize()
+void app_sample::initialize()
 {
     // initialize sdl window
     window_ = std::make_unique<interface::SDLWindow>();
     interface::WindowConfig config;
-    config.title = window_config_.title_;
-    config.width = window_config_.width_;
-    config.height = window_config_.height_;
+    config.title = window_config_.title;
+    config.width = window_config_.width;
+    config.height = window_config_.height;
     if (!window_->open(config))
     {
         throw std::runtime_error("Failed to open window.");
     }
 }
 
-void AppSample::tick()
+void app_sample::tick()
 {
 
 }

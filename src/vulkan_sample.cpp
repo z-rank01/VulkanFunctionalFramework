@@ -243,7 +243,7 @@ void VulkanSample::initialize_camera()
         {.model = glm::mat4(1.0F), .view = glm::mat4(1.0F), .projection = glm::mat4(1.0F)});
 
     // initialize camera
-    simple_camera_ = std::make_unique<interface::SimpleCamera>();
+    simple_camera_ = std::make_unique<interface::simple_camera>();
 
 
 }
@@ -911,7 +911,8 @@ void VulkanSample::resize_swapchain()
     vk_frame_buffer_helper_.reset();
 
     // reset window size
-    int width, height;
+    int width = 0;
+    int height = 0;
     window_->get_extent(width, height);
     engine_config_.window_config.width  = width;
     engine_config_.window_config.height = height;
@@ -1048,9 +1049,9 @@ bool VulkanSample::record_command(uint32_t image_index, const std::string& comma
 
 void VulkanSample::update_uniform_buffer(uint32_t current_frame_index)
 {
-    mvp_matrices_[current_frame_index].model = simple_camera_->get_matrix(interface::TransformMatrixType::kModel);
-    mvp_matrices_[current_frame_index].view  = simple_camera_->get_matrix(interface::TransformMatrixType::kView);
-    mvp_matrices_[current_frame_index].projection = simple_camera_->get_matrix(interface::TransformMatrixType::kProjection);
+    mvp_matrices_[current_frame_index].model = simple_camera_->get_matrix(interface::transform_matrix_type::model);
+    mvp_matrices_[current_frame_index].view  = simple_camera_->get_matrix(interface::transform_matrix_type::view);
+    mvp_matrices_[current_frame_index].projection = simple_camera_->get_matrix(interface::transform_matrix_type::projection);
     // reverse the Y-axis in Vulkan's NDC coordinate system
     mvp_matrices_[current_frame_index].projection[1][1] *= -1;
 
@@ -1064,7 +1065,7 @@ void VulkanSample::update_uniform_buffer(uint32_t current_frame_index)
     uint8_t* data_location = static_cast<uint8_t*>(uniform_buffer_mapped_data_) + offset;
 
     // copy the data to the mapped memory
-    memcpy(data_location, &mvp_matrices_[current_frame_index], sizeof(SMvpMatrix));
+    std::memcpy(data_location, &mvp_matrices_[current_frame_index], sizeof(SMvpMatrix));
 
     // unmap the memory
     vmaUnmapMemory(vma_allocator_, uniform_buffer_allocation_);
@@ -1154,7 +1155,7 @@ void VulkanSample::create_drawcall_list_buffer()
     void* data            = nullptr;
     vmaInvalidateAllocation(vma_allocator_, test_staging_buffer_allocation_, 0, VK_WHOLE_SIZE);
     vmaMapMemory(vma_allocator_, test_staging_buffer_allocation_, &data);
-    memcpy(data, consolidate_data.data(), consolidate_data.size());
+    std::memcpy(data, consolidate_data.data(), consolidate_data.size());
     vmaUnmapMemory(vma_allocator_, test_staging_buffer_allocation_);
     vmaFlushAllocation(vma_allocator_, test_staging_buffer_allocation_, 0, VK_WHOLE_SIZE);
 

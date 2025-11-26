@@ -35,7 +35,7 @@ enum class ERenderState : std::uint8_t
     kFalse // Render is disabled
 };
 
-struct SWindowConfig
+struct window_config
 {
     int width;
     int height;
@@ -46,7 +46,7 @@ struct SWindowConfig
 
 struct SEngineConfig
 {
-    SWindowConfig window_config;
+    window_config window_config;
     SGeneralConfig general_config;
     uint8_t frame_count;
     bool use_validation_layers;
@@ -243,7 +243,7 @@ private:
     // -------------------------
 
     // --- camera control ---
-    std::unique_ptr<interface::Camera> simple_camera_;
+    std::unique_ptr<interface::camera> simple_camera_;
     
     // --- Common Templates Test ---
     vk::Instance comm_vk_instance_;

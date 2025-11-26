@@ -5,52 +5,52 @@
 
 namespace interface
 {
-    enum class TransformMatrixType : std::uint8_t
+    enum class transform_matrix_type : std::uint8_t
     {
-        kModel,
-        kView,
-        kProjection
+        model,
+        view,
+        projection
     };
 
-    enum class CameraAttribute : std::uint8_t
+    enum class camera_attribute : std::uint8_t
     {
-        kMovementSpeed,
-        kZoom,
-        kWidth,
-        kAspectRatio
+        movement_speed,
+        zoom,
+        width,
+        aspect_ratio
     };
 
-    struct SCamera
+    struct camera_data
     {
-        glm::vec3 position_{};
-        glm::vec3 front_{};
-        glm::vec3 up_{};
-        glm::vec3 right_{};
-        glm::vec3 world_up_;
-        float yaw_;
-        float pitch_;
-        float movement_speed_{};
-        float wheel_speed_{};
-        float mouse_sensitivity_{};
-        float zoom_{};
-        float width_{};
-        float aspect_ratio_{};
+        glm::vec3 position{};
+        glm::vec3 front{};
+        glm::vec3 up{};
+        glm::vec3 right{};
+        glm::vec3 world_up;
+        float yaw;
+        float pitch;
+        float movement_speed{};
+        float wheel_speed{};
+        float mouse_sensitivity{};
+        float zoom{};
+        float width{};
+        float aspect_ratio{};
 
         // 聚焦点相关
-        glm::vec3 focus_point_{};
-        float focus_distance_{};
-        float min_focus_distance_{};
-        float max_focus_distance_{};
-        bool has_focus_point_{};
+        glm::vec3 focus_point{};
+        float focus_distance{};
+        float min_focus_distance{};
+        float max_focus_distance{};
+        bool has_focus_point{};
 
         // Add focus constraint enabled flag
-        bool focus_constraint_enabled_{};
+        bool focus_constraint_enabled{};
 
-        SCamera(glm::vec3 pos       = glm::vec3(0.0f, 0.0f, 0.0f),
+        camera_data(glm::vec3 pos       = glm::vec3(0.0f, 0.0f, 0.0f),
                 glm::vec3 up        = glm::vec3(0.0f, 1.0f, 0.0f),
                 float initial_yaw   = -90.0f,
                 float initial_pitch = 0.0f)
-            : position_(pos), world_up_(up), yaw_(initial_yaw), pitch_(initial_pitch)
+            : position(pos), world_up(up), yaw(initial_yaw), pitch(initial_pitch)
               // Initialize focus constraint enabled flag
                // Default to enabled
         {
@@ -64,28 +64,28 @@ namespace interface
 
             // 在Vulkan坐标系中计算相机方向：+X向右，+Y向上，+Z向屏幕外
             glm::vec3 new_front;
-            new_front.x = cos(glm::radians(yaw_)) * cos(glm::radians(pitch_));
-            new_front.y = sin(glm::radians(pitch_)); // Y轴向上
-            new_front.z = sin(glm::radians(yaw_)) * cos(glm::radians(pitch_));
-            front_       = glm::normalize(new_front);
+            new_front.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
+            new_front.y = sin(glm::radians(pitch)); // Y轴向上
+            new_front.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
+            front       = glm::normalize(new_front);
 
             // 计算右向量和上向量
-            right_ = glm::normalize(glm::cross(front_, world_up_));
-            up_    = glm::normalize(glm::cross(right_, front_));
+            right = glm::normalize(glm::cross(front, world_up));
+            up    = glm::normalize(glm::cross(right, front));
         }
     };
 
-    class Camera
+    class camera
     {
     public:
-        virtual ~Camera() = default;
+        virtual ~camera() = default;
 
         // core loop functions per frame
         virtual void tick(const interface::InputEvent& event) = 0;
         // getter
-        virtual glm::mat4 get_matrix(TransformMatrixType matrix_type) = 0;
+        virtual glm::mat4 get_matrix(transform_matrix_type matrix_type) = 0;
         // setter
-        virtual void set_attribute(CameraAttribute attribute, float value) = 0;
+        virtual void set_attribute(camera_attribute attribute, float value) = 0;
 
     private:
         // core helper functions
