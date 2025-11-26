@@ -10,6 +10,7 @@
 
 #include "_gltf/gltf_data.h"
 #include "_interface/sdl_window.h" // For default implementation
+#include "_interface/simple_camera.h"
 #include "_interface/window.h"
 #include "_old/vulkan_commandbuffer.h"
 #include "_old/vulkan_framebuffer.h"
@@ -242,11 +243,8 @@ private:
     // -------------------------
 
     // --- camera control ---
-    void on_event(const interface::InputEvent& event);
-    void process_keyboard_input(float delta_time);
-    void process_mouse_scroll(float yoffset);
-    void focus_on_object(const glm::vec3& object_position, float target_distance);
-
+    std::unique_ptr<interface::Camera> simple_camera_;
+    
     // --- Common Templates Test ---
     vk::Instance comm_vk_instance_;
     vk::PhysicalDevice comm_vk_physical_device_;

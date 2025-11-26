@@ -243,26 +243,9 @@ void VulkanSample::initialize_camera()
         {.model = glm::mat4(1.0F), .view = glm::mat4(1.0F), .projection = glm::mat4(1.0F)});
 
     // initialize camera
-    camera_.position          = glm::vec3(0.0F, 0.0F, 10.0F); // 更远的初始距离
-    camera_.yaw               = -90.0F;                       // look at origin
-    camera_.pitch             = 0.0F;                         // horizontal view
-    camera_.wheel_speed       = 0.1F;                         // 降低滚轮速度，避免变化太剧烈
-    camera_.movement_speed    = 5.0F;                         // 调整移动速度
-    camera_.mouse_sensitivity = 0.2F;                         // 降低鼠标灵敏度
-    camera_.zoom              = 45.0F;
-    camera_.world_up          = glm::vec3(0.0F, 1.0F, 0.0F); // Y-axis is up in Vulkan
+    simple_camera_ = std::make_unique<interface::SimpleCamera>();
 
-    // initialize camera vectors
-    camera_.front = glm::vec3(0.0F, 0.0F, -1.0F); // look at -z direction
-    camera_.right = glm::vec3(1.0F, 0.0F, 0.0F);  // right direction is +x
-    camera_.up    = glm::vec3(0.0F, 1.0F, 0.0F);  // up direction is +y (because Y-axis is up in Vulkan)
 
-    // initialize focus point related parameters
-    camera_.focus_point        = glm::vec3(0.0F); // default focus on origin
-    camera_.has_focus_point    = true;            // default enable focus point
-    camera_.focus_distance     = 10.0F;           // 增加默认焦距
-    camera_.min_focus_distance = 0.5F;            // minimum focus distance
-    camera_.max_focus_distance = 10000.0F;        // maximum focus distance
 }
 
 // Main loop
@@ -270,18 +253,10 @@ void VulkanSample::Run()
 {
     engine_state_ = EWindowState::kRunning;
 
-    Uint64 last_time = SDL_GetTicks();
-    float delta_time = 0.0F;
-
     // main loop
     interface::InputEvent e{};
     while (engine_state_ != EWindowState::kStopped)
     {
-        // calculate the time difference between frames
-        Uint64 current_time = SDL_GetTicks();
-        delta_time          = (current_time - last_time) / 1000.0F; // convert to seconds
-        last_time           = current_time;
-
         // handle events on queue
         window_->tick(e);
         if (window_->should_close())
@@ -289,9 +264,10 @@ void VulkanSample::Run()
             engine_state_ = EWindowState::kStopped;
         }
         // tackle I/O event
-        on_event(e);
+        // on_event(e);
+        simple_camera_->tick(e);
         // process keyboard input to update camera
-        process_keyboard_input(delta_time);
+        // process_keyboard_input(delta_time);
 
         // do not draw if we are minimized
         if (render_state_ == ERenderState::kFalse)
@@ -316,277 +292,6 @@ void VulkanSample::Run()
 
     // wait until the GPU is completely idle before cleaning up
     vkDeviceWaitIdle(comm_vk_logical_device_);
-}
-
-void VulkanSample::on_event(const interface::InputEvent& event)
-{
-    switch (event.type)
-    {
-    case interface::EventType::Quit:
-        engine_state_ = EWindowState::kStopped;
-        break;
-
-    case interface::EventType::KeyDown:
-        pressed_keys_.insert(event.key.key);
-        if (event.key.key == interface::KeyCode::Escape)
-        {
-            engine_state_ = EWindowState::kStopped;
-        }
-        if (event.key.key == interface::KeyCode::F) // Assuming F is mapped
-        {
-            // camera_.focus_constraint_enabled_ = !camera_.focus_constraint_enabled_;
-            // Logger::LogInfo(camera_.focus_constraint_enabled_ ? "Focus constraint enabled" : "Focus constraint disabled");
-        }
-        break;
-
-    case interface::EventType::KeyUp:
-        pressed_keys_.erase(event.key.key);
-        break;
-
-    case interface::EventType::MouseButtonDown:
-        last_x_ = event.mouse_button.x;
-        last_y_ = event.mouse_button.y;
-        if (event.mouse_button.button == interface::MouseButton::Right)
-        {
-            free_look_mode_ = true;
-        }
-        else if (event.mouse_button.button == interface::MouseButton::Middle)
-        {
-            camera_pan_mode_ = true;
-        }
-        break;
-
-    case interface::EventType::MouseButtonUp:
-        if (event.mouse_button.button == interface::MouseButton::Right)
-        {
-            free_look_mode_ = false;
-        }
-        else if (event.mouse_button.button == interface::MouseButton::Middle)
-        {
-            camera_pan_mode_ = false;
-        }
-        break;
-
-    case interface::EventType::MouseMove:
-        if (!free_look_mode_ && !camera_pan_mode_)
-        {
-            break;
-        }
-
-        {
-            float x_pos    = event.mouse_move.x;
-            float y_pos    = event.mouse_move.y;
-            float x_offset = x_pos - last_x_;
-            float y_offset = last_y_ - y_pos;
-            last_x_        = x_pos;
-            last_y_        = y_pos;
-
-            if (free_look_mode_)
-            {
-                float sensitivity_scale = 1.0F;
-                if (camera_.has_focus_point && camera_.focus_constraint_enabled_)
-                {
-                    float current_distance = glm::length(camera_.position - camera_.focus_point);
-                    float distance_factor  = glm::clamp(current_distance / camera_.focus_distance,
-                                                        camera_.min_focus_distance / camera_.focus_distance,
-                                                        camera_.max_focus_distance / camera_.focus_distance);
-                    sensitivity_scale = distance_factor;
-                }
-
-                float actual_x_offset = x_offset * camera_.mouse_sensitivity * sensitivity_scale;
-                float actual_y_offset = y_offset * camera_.mouse_sensitivity * sensitivity_scale;
-
-                camera_.yaw += actual_x_offset;
-                camera_.pitch += actual_y_offset;
-
-                camera_.pitch = std::min(camera_.pitch, 89.0F);
-                camera_.pitch = std::max(camera_.pitch, -89.0F);
-
-                camera_.UpdateCameraVectors();
-            }
-
-            if (camera_pan_mode_)
-            {
-                float current_distance = camera_.has_focus_point
-                                             ? glm::length(camera_.position - camera_.focus_point)
-                                             : camera_.focus_distance;
-
-                float distance_scale = glm::clamp(current_distance / camera_.focus_distance,
-                                                  camera_.min_focus_distance / camera_.focus_distance,
-                                                  camera_.max_focus_distance / camera_.focus_distance);
-
-                float pan_speed_multiplier        = 0.005F;
-                float actual_pan_speed_multiplier =
-                    camera_.focus_constraint_enabled_ ? pan_speed_multiplier / distance_scale : pan_speed_multiplier;
-
-                float target_x_offset = x_offset * camera_.movement_speed * actual_pan_speed_multiplier;
-                float target_y_offset = y_offset * camera_.movement_speed * actual_pan_speed_multiplier;
-
-                camera_.position -= camera_.right * target_x_offset;
-                camera_.position += camera_.up * target_y_offset;
-            }
-        }
-        break;
-
-    case interface::EventType::MouseWheel:
-    {
-        float zoom_factor = camera_.wheel_speed;
-        float distance    = glm::length(camera_.position);
-
-        if (event.mouse_wheel.y > 0)
-        {
-            if (distance > 0.5F)
-            {
-                camera_.position *= (1.0F - zoom_factor);
-            }
-        }
-        else if (event.mouse_wheel.y < 0)
-        {
-            camera_.position *= (1.0F + zoom_factor);
-        }
-
-        process_mouse_scroll(event.mouse_wheel.y);
-    }
-    break;
-
-    default:
-        break;
-    }
-}
-
-void VulkanSample::process_keyboard_input(float delta_time)
-{
-    float velocity = camera_.movement_speed * delta_time;
-
-    // If free look mode is enabled, move in world space based on camera
-    // orientation
-    if (free_look_mode_)
-    {
-        // Calculate movement speed scale based on distance to focus point if
-        // constraint is enabled
-        float distance_scale = 1.0F;
-        if (camera_.has_focus_point && camera_.focus_constraint_enabled_)
-        {
-            float current_distance = glm::length(camera_.position - camera_.focus_point);
-            distance_scale         = glm::clamp(current_distance / camera_.focus_distance,
-                                                camera_.min_focus_distance / camera_.focus_distance,
-                                                camera_.max_focus_distance / camera_.focus_distance);
-        }
-        float current_velocity = velocity / distance_scale; // Slower when closer
-
-        // move in the screen space
-        glm::vec3 movement(0.0F);
-
-        // move front/back (Z-axis relative to camera)
-        if (pressed_keys_.count(interface::KeyCode::W) || pressed_keys_.count(interface::KeyCode::Up))
-        {
-            movement += camera_.front * current_velocity;
-        }
-        if (pressed_keys_.count(interface::KeyCode::S) || pressed_keys_.count(interface::KeyCode::Down))
-        {
-            movement -= camera_.front * current_velocity;
-        }
-
-        // move left/right (X-axis relative to camera)
-        if (pressed_keys_.count(interface::KeyCode::A) || pressed_keys_.count(interface::KeyCode::Left))
-        {
-            movement -= camera_.right * current_velocity;
-        }
-        if (pressed_keys_.count(interface::KeyCode::D) || pressed_keys_.count(interface::KeyCode::Right))
-        {
-            movement += camera_.right * current_velocity;
-        }
-
-        // move up/down (Y-axis relative to world or camera up)
-        if (pressed_keys_.count(interface::KeyCode::Q))
-        {
-            movement -= camera_.up * current_velocity; // Using camera's up vector for local up/down
-        }
-        if (pressed_keys_.count(interface::KeyCode::E))
-        {
-            movement += camera_.up * current_velocity; // Using camera's up vector for local up/down
-        }
-
-        // apply the movement
-        camera_.position += movement;
-    }
-    else // Original screen space movement logic
-    {
-        // move in the screen space
-        glm::vec3 movement(0.0F);
-
-        // move up (Y-axis)
-        if (pressed_keys_.count(interface::KeyCode::W) || pressed_keys_.count(interface::KeyCode::Up))
-        {
-            movement.y += velocity; // move up (Y-axis positive direction)
-        }
-        if (pressed_keys_.count(interface::KeyCode::S) || pressed_keys_.count(interface::KeyCode::Down))
-        {
-            movement.y -= velocity; // move down (Y-axis negative direction)
-        }
-
-        // move left (l-axis)t (X-axis)
-        if (pressed_keys_.count(interface::KeyCode::A) || pressed_keys_.count(interface::KeyCode::Left))
-        {
-            movement.x -= velocity; // move left (l-axis negative direction)X-axis
-            // negative direction)
-        }
-        if (pressed_keys_.count(interface::KeyCode::D) || pressed_keys_.count(interface::KeyCode::Right))
-        {
-            movement.x += velocity; // move right (X-axis positive direction)
-        }
-
-        // move front (Z-axis)
-        if (pressed_keys_.count(interface::KeyCode::Q))
-        {
-            movement.z += velocity; // move back (Z-axis negative direction)
-        }
-        if (pressed_keys_.count(interface::KeyCode::E))
-        {
-            movement.z -= velocity; // move front (Z-axis positive direction)
-        }
-
-        // apply the smooth movement (removed smooth factor for simplicity in free
-        // look, could add back if needed) float smooth_factor = 0.1f; // smooth
-        // factor
-        camera_.position += movement; // * smooth_factor;
-    }
-}
-
-void VulkanSample::process_mouse_scroll(float yoffset)
-{
-    if (camera_.has_focus_point && camera_.focus_constraint_enabled_)
-    {
-        // Zoom by moving along the camera's front vector
-        float zoom_step = camera_.movement_speed * 0.5F; // Adjust zoom speed
-
-        // Calculate distance scale
-        float current_distance = glm::length(camera_.position - camera_.focus_point);
-        float distance_scale   = glm::clamp(current_distance / camera_.focus_distance,
-                                            camera_.min_focus_distance / camera_.focus_distance,
-                                            camera_.max_focus_distance / camera_.focus_distance);
-        zoom_step /= distance_scale; // Smaller steps when closer
-
-        if (yoffset > 0)
-        {
-            // Zoom in (move towards focus point)
-            camera_.position += camera_.front * zoom_step;
-        }
-        else if (yoffset < 0)
-        {
-            // Zoom out (move away from focus point)
-            camera_.position -= camera_.front * zoom_step;
-        }
-        // Update camera vectors after changing position for orbit-like feel
-        camera_.UpdateCameraVectors();
-    }
-    else
-    {
-        // Original FOV zoom logic when focus constraint is disabled
-        camera_.zoom -= yoffset;
-        camera_.zoom = std::max(camera_.zoom, 1.0F);
-        camera_.zoom = std::min(camera_.zoom, 45.0F);
-    }
 }
 
 // Main render loop
@@ -1343,29 +1048,31 @@ bool VulkanSample::record_command(uint32_t image_index, const std::string& comma
 
 void VulkanSample::update_uniform_buffer(uint32_t current_frame_index)
 {
-    // update the model matrix (添加适当的缩放)
-    mvp_matrices_[current_frame_index].model = glm::mat4(1.0F);
-
-    // update the view matrix
-    mvp_matrices_[current_frame_index].view = glm::lookAt(camera_.position,
-                                                          // camera position
-                                                          camera_.position + camera_.front,
-                                                          // camera looking at point
-                                                          camera_.up // camera up direction
-        );
-
-    // update the projection matrix
-    mvp_matrices_[current_frame_index].projection = glm::perspective(
-        glm::radians(camera_.zoom),
-        // FOV
-        static_cast<float>(comm_vk_swapchain_context_.swapchain_info_.extent_.width) /
-        static_cast<float>(comm_vk_swapchain_context_.swapchain_info_.extent_.height),
-        // aspect ratio
-        0.1F,
-        // near plane
-        1000.0F // 增加远平面距离，确保能看到远处的物体
-        );
-
+    // // update the model matrix (添加适当的缩放)
+    // mvp_matrices_[current_frame_index].model = glm::mat4(1.0F);
+    //
+    // // update the view matrix
+    // mvp_matrices_[current_frame_index].view = glm::lookAt(camera_.position,
+    //                                                       // camera position
+    //                                                       camera_.position + camera_.front,
+    //                                                       // camera looking at point
+    //                                                       camera_.up // camera up direction
+    //     );
+    //
+    // // update the projection matrix
+    // mvp_matrices_[current_frame_index].projection = glm::perspective(
+    //     glm::radians(camera_.zoom),
+    //     // FOV
+    //     static_cast<float>(comm_vk_swapchain_context_.swapchain_info_.extent_.width) /
+    //     static_cast<float>(comm_vk_swapchain_context_.swapchain_info_.extent_.height),
+    //     // aspect ratio
+    //     0.1F,
+    //     // near plane
+    //     1000.0F // 增加远平面距离，确保能看到远处的物体
+    //     );
+    mvp_matrices_[current_frame_index].model = simple_camera_->get_matrix(interface::TransformMatrixType::kModel);
+    mvp_matrices_[current_frame_index].view  = simple_camera_->get_matrix(interface::TransformMatrixType::kView);
+    mvp_matrices_[current_frame_index].projection = simple_camera_->get_matrix(interface::TransformMatrixType::kProjection);
     // reverse the Y-axis in Vulkan's NDC coordinate system
     mvp_matrices_[current_frame_index].projection[1][1] *= -1;
 
@@ -1384,27 +1091,6 @@ void VulkanSample::update_uniform_buffer(uint32_t current_frame_index)
     // unmap the memory
     vmaUnmapMemory(vma_allocator_, uniform_buffer_allocation_);
     uniform_buffer_mapped_data_ = nullptr;
-}
-
-// add a function to focus on an object
-void VulkanSample::focus_on_object(const glm::vec3& object_position, float target_distance)
-{
-    camera_.focus_point     = object_position;
-    camera_.has_focus_point = true;
-
-    // calculate the position the camera should move to
-    glm::vec3 direction = glm::normalize(camera_.position - object_position);
-    camera_.position    = object_position + direction * target_distance;
-
-    // update the camera direction
-    camera_.front = glm::normalize(object_position - camera_.position);
-    camera_.right = glm::normalize(glm::cross(camera_.front, camera_.world_up));
-    camera_.up    = glm::normalize(glm::cross(camera_.right, camera_.front));
-
-    // update the yaw and pitch
-    glm::vec3 front = camera_.front;
-    camera_.pitch   = glm::degrees(asin(front.y));
-    camera_.yaw     = glm::degrees(atan2(front.z, front.x));
 }
 
 void VulkanSample::create_drawcall_list_buffer()
