@@ -17,11 +17,10 @@ namespace interface
         ~simple_camera() override = default;
 
         void tick(const interface::InputEvent& event) override;
-        glm::mat4 get_matrix(transform_matrix_type matrix_type) override;
-        void set_attribute(camera_attribute attribute, float value) override;
+        glm::mat4 get_matrix(transform_matrix_type matrix_type) const override;
 
     private:
-        camera_data camera;
+        camera_data camera_data;
 
         // Input handling members
         std::unordered_set<interface::KeyCode> pressed_keys;
@@ -38,8 +37,10 @@ namespace interface
         float max_speed_multiplier = 20.0F; // Max 20x speed
         float acceleration_rate = 10.0F;     // Increase 10x per second
 
+        // Override private virtual functions from base class
+        std::any get_impl_internal(camera_attribute attribute) const override;
+        void set_impl_internal(camera_attribute attribute, const std::any& value) override;
         void process_keyboard_input() override;
-
         void process_mouse_scroll(float y_offset) override;
     };
 } // namespace interface

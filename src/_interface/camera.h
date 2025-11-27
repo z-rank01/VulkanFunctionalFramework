@@ -1,4 +1,6 @@
 ﻿#pragma once
+#include <any>
+#include <stdexcept>
 #include <glm/glm.hpp>
 
 #include "input.h"
@@ -17,7 +19,19 @@ namespace interface
         movement_speed,
         zoom,
         width,
-        aspect_ratio
+        aspect_ratio,
+        position,
+        front,
+        up,
+        right,
+        yaw,
+        pitch,
+        mouse_sensitivity,
+        wheel_speed,
+        focus_point,
+        focus_distance,
+        has_focus_point,
+        focus_constraint_enabled
     };
 
     struct camera_data
@@ -82,15 +96,50 @@ namespace interface
 
         // core loop functions per frame
         virtual void tick(const interface::InputEvent& event) = 0;
-        // getter
-        virtual glm::mat4 get_matrix(transform_matrix_type matrix_type) = 0;
-        // setter
-        virtual void set_attribute(camera_attribute attribute, float value) = 0;
-
+        
+        // getter - returns type based on attribute
+        template<typename T>
+        T get(camera_attribute attribute) const
+        {
+            return get_impl<T>(attribute);
+        }
+        
+        // setter - accepts any type based on attribute
+        template<typename T>
+        void set(camera_attribute attribute, const T& value)
+        {
+            set_impl<T>(attribute, value);
+        }
+        
+        // special getter - returns matrix with specific space(model, view, projection)
+        virtual glm::mat4 get_matrix(transform_matrix_type matrix_type) const = 0;
+        
     private:
-        // core helper functions
+        // Internal implementation for get/set - derived classes override these
+        // Uses std::any for type-safe value passing without const_cast
+        virtual std::any get_impl_internal(camera_attribute attribute) const = 0;
+        virtual void set_impl_internal(camera_attribute attribute, const std::any& value) = 0;
+        
+        // core helper functions for input processing
         virtual void process_keyboard_input() = 0;
-
         virtual void process_mouse_scroll(float y_offset) = 0;
+        
+        // Template method implementations (non-virtual, call virtual impl)
+        template<typename T>
+        T get_impl(camera_attribute attribute) const
+        {
+            std::any result = get_impl_internal(attribute);
+            if (const T* ptr = std::any_cast<T>(&result))
+            {
+                return *ptr;
+            }
+            throw std::bad_any_cast();
+        }
+        
+        template<typename T>
+        void set_impl(camera_attribute attribute, const T& value)
+        {
+            set_impl_internal(attribute, std::any(value));
+        }
     };
 }
