@@ -6,7 +6,7 @@
 namespace interface
 {
 
-    SDLWindow::SDLWindow() {}
+    SDLWindow::SDLWindow() = default;
 
     SDLWindow::~SDLWindow()
     {
@@ -15,19 +15,18 @@ namespace interface
 
     bool SDLWindow::open(const WindowConfig& config)
     {
-        if (SDL_Init(SDL_INIT_VIDEO) < 0)
+        if (static_cast<int>(SDL_Init(SDL_INIT_VIDEO)) < 0)
         {
-            std::cerr << "SDL could not initialize! SDL_Error: " << SDL_GetError() << std::endl;
+            std::cerr << "SDL could not initialize! SDL_Error: " << SDL_GetError() << '\n';
             return false;
         }
 
         auto window_flags = (SDL_WindowFlags)(SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
+        window = SDL_CreateWindow(config.title.c_str(), config.width, config.height, window_flags);
 
-        window_ = SDL_CreateWindow(config.title.c_str(), config.width, config.height, window_flags);
-
-        if (!window_)
+        if (window == nullptr)
         {
-            std::cerr << "Window could not be created! SDL_Error: " << SDL_GetError() << std::endl;
+            std::cerr << "Window could not be created! SDL_Error: " << SDL_GetError() << '\n';
             return false;
         }
 
@@ -36,18 +35,18 @@ namespace interface
 
     void SDLWindow::close()
     {
-        if (window_)
+        if (window != nullptr)
         {
-            SDL_DestroyWindow(window_);
-            window_ = nullptr;
+            SDL_DestroyWindow(window);
+            window = nullptr;
         }
         SDL_Quit();
     }
 
-    bool SDLWindow::tick(InputEvent& e)
+    void SDLWindow::tick(InputEvent& e)
     {
         SDL_Event event;
-        if (!SDL_PollEvent(&event)) return false;
+        SDL_PollEvent(&event);
         switch (event.type)
         {
         case SDL_EVENT_WINDOW_RESIZED:
@@ -91,17 +90,17 @@ namespace interface
             break;
         case SDL_EVENT_QUIT:
             e.type = EventType::Quit;
-            should_close_ = true;
+            should_close_internal = true;
             break;
         default:
+            e = InputEvent{};
             break;
         }
-        return true;
     }
 
     bool SDLWindow::should_close() const
     {
-        return should_close_;
+        return should_close_internal;
     }
 
     std::vector<const char*> SDLWindow::get_required_instance_extensions() const
@@ -114,19 +113,20 @@ namespace interface
 
     bool SDLWindow::create_vulkan_surface(VkInstance instance, VkSurfaceKHR* surface) const
     {
-        return SDL_Vulkan_CreateSurface(window_, instance, nullptr, surface);
+        return SDL_Vulkan_CreateSurface(window, instance, nullptr, surface);
     }
 
     void SDLWindow::get_extent(int& width, int& height) const
     {
-        SDL_GetWindowSize(window_, &width, &height);
+        SDL_GetWindowSize(window, &width, &height);
     }
 
     float SDLWindow::get_aspect_ratio() const
     {
-        int width, height;
+        int width = 0;
+        int height = 0;
         get_extent(width, height);
-        return (float)width / (float)height;
+        return static_cast<float>(width) / static_cast<float>(height);
     }
 
     KeyCode SDLWindow::translate_key_code(SDL_Keycode key)

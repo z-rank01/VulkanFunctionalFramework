@@ -19,7 +19,7 @@ namespace interface
 
         void close() override;
 
-        bool SDLWindow::tick(InputEvent& e) override;
+        void tick(InputEvent& e) override;
 
         bool should_close() const override;
 
@@ -36,12 +36,12 @@ namespace interface
         float get_aspect_ratio() const override;
 
     private:
-        SDL_Window* window_ = nullptr;
-        bool should_close_  = false;
+        SDL_Window* window = nullptr;
+        bool should_close_internal  = false;
 
-        KeyCode translate_key_code(SDL_Keycode key);
+        static KeyCode translate_key_code(SDL_Keycode key);
 
-        MouseButton translate_mouse_button(uint8_t button);
+        static MouseButton translate_mouse_button(uint8_t button);
     };
 
 } // namespace interface
