@@ -29,7 +29,7 @@ namespace interface
 
         virtual void close() = 0;
 
-        virtual bool tick(InputEvent& e) = 0;
+        virtual void tick(InputEvent& e) = 0;
 
         virtual bool should_close() const = 0;
 
