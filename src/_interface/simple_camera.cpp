@@ -1,8 +1,13 @@
 ﻿#include "simple_camera.h"
 
+#include <glm/ext/matrix_transform.hpp>
+
+
+#define GLM_ENABLE_EXPERIMENTAL
 #include <algorithm>
 #include <glm/ext/matrix_clip_space.hpp>
-#include <glm/ext/matrix_transform.hpp>
+#include <glm/gtx/norm.hpp>
+
 
 namespace interface
 {
@@ -16,7 +21,7 @@ namespace interface
         camera_data.yaw               = -90.0F;
         camera_data.pitch             = 0.0F;
         camera_data.wheel_speed       = 0.1F;
-        camera_data.movement_speed    = 0.05F;
+        camera_data.movement_speed    = 10.0F;
         camera_data.mouse_sensitivity = 0.2F;
         camera_data.zoom              = 45.0F;
         camera_data.world_up          = glm::vec3(0.0F, 1.0F, 0.0F); // Y-axis is up in Vulkan
@@ -37,123 +42,16 @@ namespace interface
         camera_data.min_focus_distance = 0.5F;            // minimum focus distance
         camera_data.max_focus_distance = 10000.0F;        // maximum focus distance
 
+        // initialize time point
+
         last_tick_time = std::chrono::high_resolution_clock::now();
     }
 
     void simple_camera::tick(const InputEvent& event)
     {
-        switch (event.type)
-        {
-        case EventType::Quit:
-            break;
-
-            // keyboard event
-
-        case EventType::KeyDown:
-            pressed_keys.insert(event.key.key);
-            break;
-        case EventType::KeyUp:
-            pressed_keys.erase(event.key.key);
-            break;
-
-            // mouse event
-
-        case EventType::MouseButtonDown:
-            last_x          = event.mouse_button.x;
-            last_y          = event.mouse_button.y;
-            free_look_mode  = event.mouse_button.button == MouseButton::Right ? true : free_look_mode;
-            camera_pan_mode = event.mouse_button.button == MouseButton::Middle ? true : camera_pan_mode;
-            break;
-        case EventType::MouseButtonUp:
-            free_look_mode  = event.mouse_button.button == MouseButton::Right ? false : free_look_mode;
-            camera_pan_mode = event.mouse_button.button == MouseButton::Middle ? false : camera_pan_mode;
-            break;
-        case EventType::MouseMove:
-            if (!(free_look_mode || camera_pan_mode))
-                break;
-            {
-                const float x_pos    = event.mouse_move.x;
-                const float y_pos    = event.mouse_move.y;
-                const float x_offset = x_pos - last_x;
-                const float y_offset = last_y - y_pos;
-                last_x               = x_pos;
-                last_y               = y_pos;
-
-                if (free_look_mode)
-                {
-                    // calculate offset
-
-                    float sensitivity_scale = 1.0F;
-                    if (camera_data.has_focus_point && camera_data.focus_constraint_enabled)
-                    {
-                        const float current_distance = glm::length(camera_data.position - camera_data.focus_point);
-                        const float distance_factor  = glm::clamp(current_distance / camera_data.focus_distance,
-                                                                 camera_data.min_focus_distance / camera_data.focus_distance,
-                                                                 camera_data.max_focus_distance / camera_data.focus_distance);
-                        sensitivity_scale            = distance_factor;
-                    }
-                    const float actual_x_offset = x_offset * camera_data.mouse_sensitivity * sensitivity_scale;
-                    const float actual_y_offset = y_offset * camera_data.mouse_sensitivity * sensitivity_scale;
-
-                    // offset yaw and pitch
-
-                    camera_data.yaw += actual_x_offset;
-                    camera_data.pitch += actual_y_offset;
-
-                    // normalize camera transform
-
-                    camera_data.pitch = std::min(camera_data.pitch, 89.0F);
-                    camera_data.pitch = std::max(camera_data.pitch, -89.0F);
-
-                    // update camera's uniform matrix
-
-                    camera_data.update_camera_vectors();
-                }
-
-                if (camera_pan_mode)
-                {
-                    const float current_distance =
-                        camera_data.has_focus_point ? glm::length(camera_data.position - camera_data.focus_point) : camera_data.focus_distance;
-                    const float distance_scale           = glm::clamp(current_distance / camera_data.focus_distance,
-                                                            camera_data.min_focus_distance / camera_data.focus_distance,
-                                                            camera_data.max_focus_distance / camera_data.focus_distance);
-                    constexpr float pan_speed_multiplier = 0.005F;
-                    const float actual_pan_speed_multiplier =
-                        camera_data.focus_constraint_enabled ? pan_speed_multiplier / distance_scale : pan_speed_multiplier;
-                    const float target_x_offset = x_offset * camera_data.movement_speed * actual_pan_speed_multiplier;
-                    const float target_y_offset = y_offset * camera_data.movement_speed * actual_pan_speed_multiplier;
-
-                    camera_data.position -= camera_data.right * target_x_offset;
-                    camera_data.position += camera_data.up * target_y_offset;
-                }
-            }
-            break;
-
-        case EventType::MouseWheel:
-        {
-            const float zoom_factor = camera_data.wheel_speed;
-            const float distance    = glm::length(camera_data.position);
-
-            if (event.mouse_wheel.y > 0)
-            {
-                if (distance > 0.5F)
-                {
-                    camera_data.position *= (1.0F - zoom_factor);
-                }
-            }
-            else if (event.mouse_wheel.y < 0)
-            {
-                camera_data.position *= (1.0F + zoom_factor);
-            }
-            mouse_y_offset = event.mouse_wheel.y;
-            process_mouse_input();
-        }
-        break;
-
-        default:
-            break;
-        }
-        process_keyboard_input();
+        process_mouse_input(event);
+        process_keyboard_input(event);
+        camera_data.update_camera_vectors();
     }
 
     glm::mat4 simple_camera::get_matrix(transform_matrix_type matrix_type) const
@@ -161,194 +59,198 @@ namespace interface
         switch (matrix_type)
         {
         case transform_matrix_type::model:
-            // default return identity matrix
             return {1.0F};
         case transform_matrix_type::view:
-            return glm::lookAt(camera_data.position,
-                               // camera position
-                               camera_data.position + camera_data.front,
-                               // camera looking at point
-                               camera_data.up
-                               // camera up direction
-            );
+            return glm::lookAt(camera_data.position, camera_data.position + camera_data.front, camera_data.up);
         case transform_matrix_type::projection:
-            return glm::perspective(glm::radians(camera_data.zoom),
-                                    // FOV
-                                    camera_data.aspect_ratio,
-                                    // aspect ratio
-                                    0.1F,
-                                    // near plane
-                                    1000.0F
-                                    // far plane
-            );
+            return glm::perspective(glm::radians(camera_data.zoom), camera_data.aspect_ratio, 0.1F, 1000.0F);
         default:
             return {1.0F};
         }
     }
 
-    void simple_camera::process_keyboard_input()
+    void simple_camera::process_keyboard_input(const interface::InputEvent& /*event*/)
     {
-        // Calculate delta time
+        // 1. Calculate Delta Time
         auto current_tick_time = std::chrono::high_resolution_clock::now();
-        float delta_time       = std::chrono::duration<float, std::chrono::seconds::period>(current_tick_time - last_tick_time).count();
+        float delta_time       = std::chrono::duration<float>(current_tick_time - last_tick_time).count();
         last_tick_time         = current_tick_time;
 
-        // Prevent huge delta time if the camera hasn't been updated for a while (e.g. > 0.1s)
-        // This ensures the first frame of movement doesn't jump too far
-        if (delta_time > 0.1F)
-            delta_time = 0.016F; // Assume 60fps for the first frame after idle
+        // Prevent huge delta time jump
+        if (delta_time > 0.1F) delta_time = 0.016F;
 
-        // Check if any movement key is pressed
-        bool is_moving = false;
-        if (pressed_keys.contains(interface::KeyCode::W) || pressed_keys.contains(interface::KeyCode::Up) ||
-            pressed_keys.contains(interface::KeyCode::A) || pressed_keys.contains(interface::KeyCode::Left) ||
-            pressed_keys.contains(interface::KeyCode::S) || pressed_keys.contains(interface::KeyCode::Down) ||
-            pressed_keys.contains(interface::KeyCode::D) || pressed_keys.contains(interface::KeyCode::Right) ||
-            pressed_keys.contains(interface::KeyCode::Q) || pressed_keys.contains(interface::KeyCode::E))
+        // 2. Helper Lambda: Map keys to axis value (-1.0, 0.0, 1.0)
+        auto get_axis = [&](KeyCode pos_key, KeyCode neg_key, KeyCode alt_pos = KeyCode::Unknown, KeyCode alt_neg = KeyCode::Unknown)
         {
-            is_moving = true;
+            float val = 0.0F;
+            if (pressed_keys.contains(pos_key) || (alt_pos != KeyCode::Unknown && pressed_keys.contains(alt_pos)))
+                val += 1.0F;
+            if (pressed_keys.contains(neg_key) || (alt_neg != KeyCode::Unknown && pressed_keys.contains(alt_neg)))
+                val -= 1.0F;
+            return val;
+        };
+
+        // 3. Calculate Input Direction Vector (Local Space)
+        // x: Right(+)/Left(-), y: Up(+)/Down(-), z: Front(+)/Back(-)
+        glm::vec3 input_dir(0.0F);
+
+        if (free_look_mode)
+        {
+            // Free Look Mapping: W/S->Front, A/D->Right, E/Q->Up(Vertical)
+            input_dir.x = get_axis(KeyCode::D, KeyCode::A, KeyCode::Right, KeyCode::Left);
+            input_dir.y = get_axis(KeyCode::E, KeyCode::Q);
+            input_dir.z = get_axis(KeyCode::W, KeyCode::S, KeyCode::Up, KeyCode::Down);
+        }
+        else
+        {
+            // Normal Mapping: D/A->X, W/S->Y, E/Q->Z (Note: Q is +Z which is Back, E is -Z which is Front)
+            input_dir.x = get_axis(KeyCode::D, KeyCode::A, KeyCode::Right, KeyCode::Left);
+            input_dir.y = get_axis(KeyCode::W, KeyCode::S, KeyCode::Up, KeyCode::Down);
+            input_dir.z = get_axis(KeyCode::Q, KeyCode::E); // Q moves back (+Z), E moves front (-Z)
         }
 
+        // 4. Update Speed Acceleration
+        bool is_moving = glm::length2(input_dir) > 0.01F;
         if (is_moving)
         {
-            current_speed_multiplier += acceleration_rate * delta_time;
-            current_speed_multiplier = std::min(current_speed_multiplier, max_speed_multiplier);
+            current_speed_multiplier = std::min(current_speed_multiplier + (acceleration_rate * delta_time), max_speed_multiplier);
         }
         else
         {
             current_speed_multiplier = 1.0F;
+            return; // No movement, early exit
         }
 
+        // 5. Apply Movement
         float velocity = camera_data.movement_speed * current_speed_multiplier;
+        float step = velocity * delta_time; // Apply delta_time here for frame-rate independence, physhically correct
 
-        // If free look mode is enabled, move in world space based on camera
-        // orientation
         if (free_look_mode)
         {
-            // Calculate movement speed scale based on distance to focus point if
-            // constraint is enabled
+            // Calculate distance scale for focus constraint
             float distance_scale = 1.0F;
             if (camera_data.has_focus_point && camera_data.focus_constraint_enabled)
             {
-                float current_distance = glm::length(camera_data.position - camera_data.focus_point);
-                distance_scale         = glm::clamp(current_distance / camera_data.focus_distance,
+                float dist     = glm::length(camera_data.position - camera_data.focus_point);
+                distance_scale = std::clamp(dist / camera_data.focus_distance,
                                             camera_data.min_focus_distance / camera_data.focus_distance,
                                             camera_data.max_focus_distance / camera_data.focus_distance);
             }
-            float current_velocity = velocity / distance_scale; // Slower when closer
 
-            // move in the screen space
-            glm::vec3 movement(0.0F);
+            float current_step = step / distance_scale;
 
-            // move front/back (Z-axis relative to camera)
-            if (pressed_keys.contains(interface::KeyCode::W) || pressed_keys.contains(interface::KeyCode::Up))
-            {
-                movement += camera_data.front * current_velocity;
-            }
-            if (pressed_keys.contains(interface::KeyCode::S) || pressed_keys.contains(interface::KeyCode::Down))
-            {
-                movement -= camera_data.front * current_velocity;
-            }
-
-            // move left/right (X-axis relative to camera)
-            if (pressed_keys.contains(interface::KeyCode::A) || pressed_keys.contains(interface::KeyCode::Left))
-            {
-                movement -= camera_data.right * current_velocity;
-            }
-            if (pressed_keys.contains(interface::KeyCode::D) || pressed_keys.contains(interface::KeyCode::Right))
-            {
-                movement += camera_data.right * current_velocity;
-            }
-
-            // move up/down (Y-axis relative to world or camera up)
-            if (pressed_keys.contains(interface::KeyCode::Q))
-            {
-                movement -= camera_data.up * current_velocity; // Using camera's up vector for local up/down
-            }
-            if (pressed_keys.contains(interface::KeyCode::E))
-            {
-                movement += camera_data.up * current_velocity; // Using camera's up vector for local up/down
-            }
-
-            // apply the movement
-            camera_data.position += movement;
-        }
-        else // Original screen space movement logic
-        {
-            // move in the screen space
-            glm::vec3 movement(0.0F);
-
-            // move up (Y-axis)
-            if (pressed_keys.contains(interface::KeyCode::W) || pressed_keys.contains(interface::KeyCode::Up))
-            {
-                movement.y += velocity; // move up (Y-axis positive direction)
-            }
-            if (pressed_keys.contains(interface::KeyCode::S) || pressed_keys.contains(interface::KeyCode::Down))
-            {
-                movement.y -= velocity; // move down (Y-axis negative direction)
-            }
-
-            // move left (l-axis)t (X-axis)
-            if (pressed_keys.contains(interface::KeyCode::A) || pressed_keys.contains(interface::KeyCode::Left))
-            {
-                movement.x -= velocity; // move left (l-axis negative direction)X-axis
-                // negative direction)
-            }
-            if (pressed_keys.contains(interface::KeyCode::D) || pressed_keys.contains(interface::KeyCode::Right))
-            {
-                movement.x += velocity; // move right (X-axis positive direction)
-            }
-
-            // move front (Z-axis)
-            if (pressed_keys.contains(interface::KeyCode::Q))
-            {
-                movement.z += velocity; // move back (Z-axis negative direction)
-            }
-            if (pressed_keys.contains(interface::KeyCode::E))
-            {
-                movement.z -= velocity; // move front (Z-axis positive direction)
-            }
-
-            // apply the smooth movement (removed smooth factor for simplicity in free
-            // look, could add back if needed) float smooth_factor = 0.1f; // smooth
-            // factor
-            camera_data.position += movement; // * smooth_factor;
-        }
-    }
-
-    void simple_camera::process_mouse_input()
-    {
-        if (camera_data.has_focus_point && camera_data.focus_constraint_enabled)
-        {
-            // Zoom by moving along the camera's front vector
-            float zoom_step = camera_data.movement_speed * 0.5F; // Adjust zoom speed
-
-            // Calculate distance scale
-            float current_distance = glm::length(camera_data.position - camera_data.focus_point);
-            float distance_scale   = glm::clamp(current_distance / camera_data.focus_distance,
-                                              camera_data.min_focus_distance / camera_data.focus_distance,
-                                              camera_data.max_focus_distance / camera_data.focus_distance);
-            zoom_step /= distance_scale; // Smaller steps when closer
-
-            if (mouse_y_offset > 0)
-            {
-                // Zoom in (move towards focus point)
-                camera_data.position += camera_data.front * zoom_step;
-            }
-            else if (mouse_y_offset < 0)
-            {
-                // Zoom out (move away from focus point)
-                camera_data.position -= camera_data.front * zoom_step;
-            }
-            // Update camera vectors after changing position for orbit-like feel
-            camera_data.update_camera_vectors();
+            // Apply local directions to world position
+            camera_data.position += camera_data.right * input_dir.x * current_step;
+            camera_data.position += camera_data.up * input_dir.y * current_step; // World Up or Camera Up? Original used camera_data.up
+            camera_data.position += camera_data.front * input_dir.z * current_step;
         }
         else
         {
-            // Original FOV zoom logic when focus constraint is disabled
-            camera_data.zoom -= mouse_y_offset;
-            camera_data.zoom = std::max(camera_data.zoom, 1.0F);
-            camera_data.zoom = std::min(camera_data.zoom, 45.0F);
+            // Direct world axis movement
+            camera_data.position += input_dir * step;
+        }
+    }
+
+    void simple_camera::process_mouse_input(const interface::InputEvent& event)
+    {
+        // Helper for Free Look Logic
+
+        auto handle_free_look = [&](float x_offset, float y_offset)
+        {
+            float sensitivity_scale = 1.0F;
+            if (camera_data.has_focus_point && camera_data.focus_constraint_enabled)
+            {
+                float dist        = glm::length(camera_data.position - camera_data.focus_point);
+                sensitivity_scale = std::clamp(dist / camera_data.focus_distance,
+                                               camera_data.min_focus_distance / camera_data.focus_distance,
+                                               camera_data.max_focus_distance / camera_data.focus_distance);
+            }
+
+            camera_data.yaw += x_offset * camera_data.mouse_sensitivity * sensitivity_scale;
+            camera_data.pitch += y_offset * camera_data.mouse_sensitivity * sensitivity_scale;
+            camera_data.pitch = std::clamp(camera_data.pitch, -89.0F, 89.0F);
+        };
+
+        // Helper for Pan Logic
+
+        auto handle_pan = [&](float x_offset, float y_offset)
+        {
+            float dist = camera_data.has_focus_point ? glm::length(camera_data.position - camera_data.focus_point) : camera_data.focus_distance;
+            float distance_scale = std::clamp(dist / camera_data.focus_distance,
+                                              camera_data.min_focus_distance / camera_data.focus_distance,
+                                              camera_data.max_focus_distance / camera_data.focus_distance);
+
+            constexpr float base_pan_speed = 0.005F;
+            float pan_speed                = camera_data.focus_constraint_enabled ? base_pan_speed / distance_scale : base_pan_speed;
+            float move_speed               = camera_data.movement_speed * pan_speed;
+
+            camera_data.position -= camera_data.right * x_offset * move_speed;
+            camera_data.position += camera_data.up * y_offset * move_speed;
+        };
+
+        // Process Event
+
+        switch (event.type)
+        {
+        case EventType::KeyDown:
+            pressed_keys.insert(event.key.key);
+            break;
+        case EventType::KeyUp:
+            pressed_keys.erase(event.key.key);
+            break;
+
+        case EventType::MouseButtonDown:
+            last_x = event.mouse_button.x;
+            last_y = event.mouse_button.y;
+            if (event.mouse_button.button == MouseButton::Right)
+                free_look_mode = true;
+            if (event.mouse_button.button == MouseButton::Middle)
+                camera_pan_mode = true;
+            break;
+
+        case EventType::MouseButtonUp:
+            if (event.mouse_button.button == MouseButton::Right)
+                free_look_mode = false;
+            if (event.mouse_button.button == MouseButton::Middle)
+                camera_pan_mode = false;
+            break;
+
+        case EventType::MouseMove:
+            if (free_look_mode || camera_pan_mode)
+            {
+                float x_offset = event.mouse_move.x - last_x;
+                float y_offset = last_y - event.mouse_move.y; // Reversed since y-coordinates go from bottom to top
+                last_x         = event.mouse_move.x;
+                last_y         = event.mouse_move.y;
+
+                if (free_look_mode)
+                    handle_free_look(x_offset, y_offset);
+                if (camera_pan_mode)
+                    handle_pan(x_offset, y_offset);
+            }
+            break;
+
+        case EventType::MouseWheel:
+        {
+            float offset = event.mouse_wheel.y;
+            if (camera_data.has_focus_point && camera_data.focus_constraint_enabled)
+            {
+                float dist  = glm::length(camera_data.position - camera_data.focus_point);
+                float scale = std::clamp(dist / camera_data.focus_distance,
+                                         camera_data.min_focus_distance / camera_data.focus_distance,
+                                         camera_data.max_focus_distance / camera_data.focus_distance);
+
+                float zoom_step = camera_data.movement_speed * 0.5F / scale;
+                camera_data.position += camera_data.front * (offset > 0 ? zoom_step : -zoom_step);
+            }
+            else
+            {
+                camera_data.zoom = std::clamp(camera_data.zoom - offset, 1.0F, 45.0F);
+            }
+            break;
+        }
+        default:
+            break;
         }
     }
 
@@ -366,16 +268,6 @@ namespace interface
             return camera_data.aspect_ratio;
         case camera_attribute::position:
             return camera_data.position;
-        case camera_attribute::front:
-            return camera_data.front;
-        case camera_attribute::up:
-            return camera_data.up;
-        case camera_attribute::right:
-            return camera_data.right;
-        case camera_attribute::yaw:
-            return camera_data.yaw;
-        case camera_attribute::pitch:
-            return camera_data.pitch;
         case camera_attribute::mouse_sensitivity:
             return camera_data.mouse_sensitivity;
         case camera_attribute::wheel_speed:
@@ -401,10 +293,6 @@ namespace interface
             if (const auto* val = std::any_cast<float>(&value))
                 camera_data.movement_speed = *val;
             break;
-        case camera_attribute::zoom:
-            if (const auto* val = std::any_cast<float>(&value))
-                camera_data.zoom = *val;
-            break;
         case camera_attribute::width:
             if (const auto* val = std::any_cast<float>(&value))
                 camera_data.width = *val;
@@ -412,36 +300,6 @@ namespace interface
         case camera_attribute::aspect_ratio:
             if (const auto* val = std::any_cast<float>(&value))
                 camera_data.aspect_ratio = *val;
-            break;
-        case camera_attribute::position:
-            if (const auto* val = std::any_cast<glm::vec3>(&value))
-                camera_data.position = *val;
-            break;
-        case camera_attribute::front:
-            if (const auto* val = std::any_cast<glm::vec3>(&value))
-                camera_data.front = *val;
-            break;
-        case camera_attribute::up:
-            if (const auto* val = std::any_cast<glm::vec3>(&value))
-                camera_data.up = *val;
-            break;
-        case camera_attribute::right:
-            if (const auto* val = std::any_cast<glm::vec3>(&value))
-                camera_data.right = *val;
-            break;
-        case camera_attribute::yaw:
-            if (const auto* val = std::any_cast<float>(&value))
-            {
-                camera_data.yaw = *val;
-                camera_data.update_camera_vectors();
-            }
-            break;
-        case camera_attribute::pitch:
-            if (const auto* val = std::any_cast<float>(&value))
-            {
-                camera_data.pitch = *val;
-                camera_data.update_camera_vectors();
-            }
             break;
         case camera_attribute::mouse_sensitivity:
             if (const auto* val = std::any_cast<float>(&value))
@@ -466,6 +324,14 @@ namespace interface
         case camera_attribute::focus_constraint_enabled:
             if (const auto* val = std::any_cast<bool>(&value))
                 camera_data.focus_constraint_enabled = *val;
+            break;
+        case camera_attribute::zoom:
+            if (const auto* val = std::any_cast<float>(&value))
+                camera_data.zoom = *val;
+            break;
+        case camera_attribute::position:
+            if (const auto* val = std::any_cast<glm::vec3>(&value))
+                camera_data.position = *val;
             break;
         default:
             break;

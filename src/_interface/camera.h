@@ -17,21 +17,16 @@ namespace interface
     enum class camera_attribute : std::uint8_t
     {
         movement_speed,
-        zoom,
         width,
         aspect_ratio,
-        position,
-        front,
-        up,
-        right,
-        yaw,
-        pitch,
         mouse_sensitivity,
         wheel_speed,
         focus_point,
         focus_distance,
         has_focus_point,
-        focus_constraint_enabled
+        focus_constraint_enabled, 
+        zoom, 
+        position
     };
 
     struct camera_data
@@ -116,11 +111,6 @@ namespace interface
 
         virtual std::any get_impl_internal(camera_attribute attribute) const              = 0;
         virtual void set_impl_internal(camera_attribute attribute, const std::any& value) = 0;
-
-        // core helper functions for input processing
-
-        virtual void process_keyboard_input() = 0;
-        virtual void process_mouse_input()    = 0;
 
         // Template method implementations (non-virtual, call virtual impl)
 

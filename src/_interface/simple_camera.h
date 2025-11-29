@@ -34,7 +34,6 @@ namespace interface
         float last_y         = 0.0F;
         float orbit_distance = 0.0F; // distance from center during orbit rotation
         std::unordered_set<interface::KeyCode> pressed_keys;
-        float mouse_y_offset = 0.0F;  // for smooth orbiting
         bool free_look_mode  = false; // free look mode (right mouse button held)
         bool camera_pan_mode = false; // camera pan mode (middle mouse button)
 
@@ -42,7 +41,7 @@ namespace interface
 
         std::any get_impl_internal(camera_attribute attribute) const override;
         void set_impl_internal(camera_attribute attribute, const std::any& value) override;
-        void process_keyboard_input() override;
-        void process_mouse_input() override;
+        void process_keyboard_input(const interface::InputEvent& event);
+        void process_mouse_input(const interface::InputEvent& event);
     };
 } // namespace interface
