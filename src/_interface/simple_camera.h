@@ -1,14 +1,13 @@
 ﻿#pragma once
+#include <chrono>
 #include <glm/glm.hpp>
 #include <unordered_set>
-#include <chrono>
 
 #include "camera.h"
 #include "input.h"
 
 namespace interface
 {
-
 
     class simple_camera : public camera
     {
@@ -22,25 +21,28 @@ namespace interface
     private:
         camera_data camera_data;
 
-        // Input handling members
-        std::unordered_set<interface::KeyCode> pressed_keys;
-        float last_x = 0.0F;
-        float last_y = 0.0F;
-        // Rename camera_rotation_mode_ to free_look_mode_
-        bool free_look_mode  = false; // 相机自由查看模式标志（右键按住）
-        bool camera_pan_mode = false; // 相机平移模式标志（中键）
-        float orbit_distance = 0.0F;  // 轨道旋转时与中心的距离
-        
         // Time based acceleration
+
         std::chrono::high_resolution_clock::time_point last_tick_time;
         float current_speed_multiplier = 1.0F;
-        float max_speed_multiplier = 20.0F; // Max 20x speed
-        float acceleration_rate = 10.0F;     // Increase 10x per second
+        float max_speed_multiplier     = 20.0F; // Max 20x speed
+        float acceleration_rate        = 10.0F; // Increase 10x per second
+
+        // Input handling members
+
+        float last_x         = 0.0F;
+        float last_y         = 0.0F;
+        float orbit_distance = 0.0F; // distance from center during orbit rotation
+        std::unordered_set<interface::KeyCode> pressed_keys;
+        float mouse_y_offset = 0.0F;  // for smooth orbiting
+        bool free_look_mode  = false; // free look mode (right mouse button held)
+        bool camera_pan_mode = false; // camera pan mode (middle mouse button)
 
         // Override private virtual functions from base class
+
         std::any get_impl_internal(camera_attribute attribute) const override;
         void set_impl_internal(camera_attribute attribute, const std::any& value) override;
         void process_keyboard_input() override;
-        void process_mouse_scroll(float y_offset) override;
+        void process_mouse_input() override;
     };
 } // namespace interface

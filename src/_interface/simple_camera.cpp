@@ -11,26 +11,29 @@ namespace interface
     simple_camera::simple_camera()
     {
         // initialize camera attributes
-        camera_data.position          = glm::vec3(0.0F, 0.0F, 10.0F); // 更远的初始距离
-        camera_data.yaw               = -90.0F;                       // look at origin
-        camera_data.pitch             = 0.0F;                         // horizontal view
-        camera_data.wheel_speed       = 0.1F;                         // 降低滚轮速度，避免变化太剧烈
-        camera_data.movement_speed    = 0.05F;                        // 调整移动速度
-        camera_data.mouse_sensitivity = 0.2F;                         // 降低鼠标灵敏度
+
+        camera_data.position          = glm::vec3(0.0F, 0.0F, 10.0F);
+        camera_data.yaw               = -90.0F;
+        camera_data.pitch             = 0.0F;
+        camera_data.wheel_speed       = 0.1F;
+        camera_data.movement_speed    = 0.05F;
+        camera_data.mouse_sensitivity = 0.2F;
         camera_data.zoom              = 45.0F;
         camera_data.world_up          = glm::vec3(0.0F, 1.0F, 0.0F); // Y-axis is up in Vulkan
         camera_data.aspect_ratio      = 16.0F / 9.0F;
         camera_data.width             = 1600;
 
         // initialize camera basic vectors
+
         camera_data.front = glm::vec3(0.0F, 0.0F, -1.0F); // look at -z direction
         camera_data.right = glm::vec3(1.0F, 0.0F, 0.0F);  // the right direction is +x
         camera_data.up    = glm::vec3(0.0F, 1.0F, 0.0F);  // up direction is +y (because Y-axis is up in Vulkan)
 
         // initialize focus point related parameters
+
         camera_data.focus_point        = glm::vec3(0.0F); // default focus on origin
         camera_data.has_focus_point    = true;            // default enables focus point
-        camera_data.focus_distance     = 10.0F;           // 增加默认焦距
+        camera_data.focus_distance     = 10.0F;           // default focus distance
         camera_data.min_focus_distance = 0.5F;            // minimum focus distance
         camera_data.max_focus_distance = 10000.0F;        // maximum focus distance
 
@@ -44,7 +47,8 @@ namespace interface
         case EventType::Quit:
             break;
 
-        // keyboard event
+            // keyboard event
+
         case EventType::KeyDown:
             pressed_keys.insert(event.key.key);
             break;
@@ -52,7 +56,8 @@ namespace interface
             pressed_keys.erase(event.key.key);
             break;
 
-        // mouse event
+            // mouse event
+
         case EventType::MouseButtonDown:
             last_x          = event.mouse_button.x;
             last_y          = event.mouse_button.y;
@@ -77,6 +82,7 @@ namespace interface
                 if (free_look_mode)
                 {
                     // calculate offset
+
                     float sensitivity_scale = 1.0F;
                     if (camera_data.has_focus_point && camera_data.focus_constraint_enabled)
                     {
@@ -90,27 +96,30 @@ namespace interface
                     const float actual_y_offset = y_offset * camera_data.mouse_sensitivity * sensitivity_scale;
 
                     // offset yaw and pitch
+
                     camera_data.yaw += actual_x_offset;
                     camera_data.pitch += actual_y_offset;
 
                     // normalize camera transform
+
                     camera_data.pitch = std::min(camera_data.pitch, 89.0F);
                     camera_data.pitch = std::max(camera_data.pitch, -89.0F);
 
                     // update camera's uniform matrix
+
                     camera_data.update_camera_vectors();
                 }
 
                 if (camera_pan_mode)
                 {
-                    const float current_distance = camera_data.has_focus_point ? glm::length(camera_data.position - camera_data.focus_point) : camera_data.focus_distance;
-                    const float distance_scale   = glm::clamp(current_distance / camera_data.focus_distance,
+                    const float current_distance =
+                        camera_data.has_focus_point ? glm::length(camera_data.position - camera_data.focus_point) : camera_data.focus_distance;
+                    const float distance_scale           = glm::clamp(current_distance / camera_data.focus_distance,
                                                             camera_data.min_focus_distance / camera_data.focus_distance,
                                                             camera_data.max_focus_distance / camera_data.focus_distance);
                     constexpr float pan_speed_multiplier = 0.005F;
                     const float actual_pan_speed_multiplier =
                         camera_data.focus_constraint_enabled ? pan_speed_multiplier / distance_scale : pan_speed_multiplier;
-
                     const float target_x_offset = x_offset * camera_data.movement_speed * actual_pan_speed_multiplier;
                     const float target_y_offset = y_offset * camera_data.movement_speed * actual_pan_speed_multiplier;
 
@@ -136,8 +145,8 @@ namespace interface
             {
                 camera_data.position *= (1.0F + zoom_factor);
             }
-
-            process_mouse_scroll(event.mouse_wheel.y);
+            mouse_y_offset = event.mouse_wheel.y;
+            process_mouse_input();
         }
         break;
 
@@ -192,7 +201,7 @@ namespace interface
         // Check if any movement key is pressed
         bool is_moving = false;
         if (pressed_keys.contains(interface::KeyCode::W) || pressed_keys.contains(interface::KeyCode::Up) ||
-            pressed_keys.contains(interface::KeyCode::A) || pressed_keys.contains(interface::KeyCode::Left) ||    
+            pressed_keys.contains(interface::KeyCode::A) || pressed_keys.contains(interface::KeyCode::Left) ||
             pressed_keys.contains(interface::KeyCode::S) || pressed_keys.contains(interface::KeyCode::Down) ||
             pressed_keys.contains(interface::KeyCode::D) || pressed_keys.contains(interface::KeyCode::Right) ||
             pressed_keys.contains(interface::KeyCode::Q) || pressed_keys.contains(interface::KeyCode::E))
@@ -307,7 +316,7 @@ namespace interface
         }
     }
 
-    void simple_camera::process_mouse_scroll(float y_offset)
+    void simple_camera::process_mouse_input()
     {
         if (camera_data.has_focus_point && camera_data.focus_constraint_enabled)
         {
@@ -321,12 +330,12 @@ namespace interface
                                               camera_data.max_focus_distance / camera_data.focus_distance);
             zoom_step /= distance_scale; // Smaller steps when closer
 
-            if (y_offset > 0)
+            if (mouse_y_offset > 0)
             {
                 // Zoom in (move towards focus point)
                 camera_data.position += camera_data.front * zoom_step;
             }
-            else if (y_offset < 0)
+            else if (mouse_y_offset < 0)
             {
                 // Zoom out (move away from focus point)
                 camera_data.position -= camera_data.front * zoom_step;
@@ -337,7 +346,7 @@ namespace interface
         else
         {
             // Original FOV zoom logic when focus constraint is disabled
-            camera_data.zoom -= y_offset;
+            camera_data.zoom -= mouse_y_offset;
             camera_data.zoom = std::max(camera_data.zoom, 1.0F);
             camera_data.zoom = std::min(camera_data.zoom, 45.0F);
         }
