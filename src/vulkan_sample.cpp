@@ -260,18 +260,14 @@ void VulkanSample::Run()
         {
             engine_state_ = EWindowState::kStopped;
         }
-        // tackle I/O event
-        // on_event(e);
         simple_camera_->tick(e);
-        // process keyboard input to update camera
-        // process_keyboard_input(delta_time);
 
         // do not draw if we are minimized
         if (render_state_ == ERenderState::kFalse)
         {
             // throttle the speed to avoid the endless spinning
-            constexpr auto kSleepDurationMs = 100;
-            std::this_thread::sleep_for(std::chrono::milliseconds(kSleepDurationMs));
+            constexpr auto sleep_duration_ms = 100;
+            std::this_thread::sleep_for(std::chrono::milliseconds(sleep_duration_ms));
             continue;
         }
 
