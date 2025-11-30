@@ -5,7 +5,7 @@
 namespace interface
 {
 
-    enum class KeyCode
+    enum class key_code : std::uint8_t
     {
         Unknown,
         W,
@@ -25,7 +25,7 @@ namespace interface
         Right
     };
 
-    enum class MouseButton
+    enum class mouse_button : std::uint8_t
     {
         Left,
         Middle,
@@ -33,7 +33,7 @@ namespace interface
         Unknown
     };
 
-    enum class EventType
+    enum class event_type : std::uint8_t
     {
         None, 
         Quit,
@@ -46,18 +46,18 @@ namespace interface
         MouseButtonUp
     };
 
-    struct ResizeEvent
+    struct resize_event
     {
         int width;
         int height;
     };
 
-    struct KeyEvent
+    struct key_event
     {
-        KeyCode key;
+        key_code key;
     };
 
-    struct MouseMoveEvent
+    struct mouse_move_event
     {
         float x;
         float y;
@@ -65,15 +65,15 @@ namespace interface
         float yrel;
     };
 
-    struct MouseWheelEvent
+    struct mouse_wheel_event
     {
         float x;
         float y;
     };
 
-    struct MouseButtonEvent
+    struct mouse_button_event
     {
-        MouseButton button;
+        mouse_button button;
         float x;
         float y;
         bool pressed; // true for down, false for up
@@ -103,17 +103,17 @@ namespace interface
      * - `mouse_wheel`: Represents information about mouse wheel scrolling.
      * - `mouse_button`: Contains data for mouse button press or release events.
      */
-    struct InputEvent
+    struct input_event
     {
-        EventType type;
+        event_type type;
 
         union
         {
-            ResizeEvent resize;
-            KeyEvent key;
-            MouseMoveEvent mouse_move;
-            MouseWheelEvent mouse_wheel;
-            MouseButtonEvent mouse_button;
+            resize_event resize;
+            key_event key;
+            mouse_move_event mouse_move;
+            mouse_wheel_event mouse_wheel;
+            mouse_button_event mouse_button;
         };
     };
 

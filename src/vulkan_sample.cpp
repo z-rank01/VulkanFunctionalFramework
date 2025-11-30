@@ -251,7 +251,7 @@ void VulkanSample::Run()
     engine_state_ = EWindowState::kRunning;
 
     // main loop
-    interface::InputEvent e{};
+    interface::input_event e{};
     while (engine_state_ != EWindowState::kStopped)
     {
         // handle events on queue

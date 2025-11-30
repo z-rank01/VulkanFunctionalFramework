@@ -43,57 +43,57 @@ namespace interface
         SDL_Quit();
     }
 
-    void SDLWindow::tick(InputEvent& e)
+    void SDLWindow::tick(input_event& e)
     {
         SDL_Event event;
         SDL_PollEvent(&event);
         switch (event.type)
         {
         case SDL_EVENT_WINDOW_RESIZED:
-            e.type = EventType::Resize;
+            e.type = event_type::Resize;
             e.resize.width  = event.window.data1;
             e.resize.height = event.window.data2;
             break;
         case SDL_EVENT_KEY_DOWN:
-            e.type = EventType::KeyDown;
+            e.type = event_type::KeyDown;
             e.key.key = translate_key_code(event.key.key);
             break;
         case SDL_EVENT_KEY_UP:
-            e.type = EventType::KeyUp;
+            e.type = event_type::KeyUp;
             e.key.key = translate_key_code(event.key.key);
             break;
         case SDL_EVENT_MOUSE_MOTION:
-            e.type = EventType::MouseMove;
+            e.type = event_type::MouseMove;
             e.mouse_move.x    = event.motion.x;
             e.mouse_move.y    = event.motion.y;
             e.mouse_move.xrel = event.motion.xrel;
             e.mouse_move.yrel = event.motion.yrel;
             break;
         case SDL_EVENT_MOUSE_WHEEL:
-            e.type = EventType::MouseWheel;
+            e.type = event_type::MouseWheel;
             e.mouse_wheel.x = event.wheel.x;
             e.mouse_wheel.y = event.wheel.y;
             break;
         case SDL_EVENT_MOUSE_BUTTON_DOWN:
-            e.type = EventType::MouseButtonDown;
+            e.type = event_type::MouseButtonDown;
             e.mouse_button.button  = translate_mouse_button(event.button.button);
             e.mouse_button.x       = event.button.x;
             e.mouse_button.y       = event.button.y;
             e.mouse_button.pressed = true;
             break;
         case SDL_EVENT_MOUSE_BUTTON_UP:
-            e.type = EventType::MouseButtonUp;
+            e.type = event_type::MouseButtonUp;
             e.mouse_button.button  = translate_mouse_button(event.button.button);
             e.mouse_button.x       = event.button.x;
             e.mouse_button.y       = event.button.y;
             e.mouse_button.pressed = false;
             break;
         case SDL_EVENT_QUIT:
-            e.type = EventType::Quit;
+            e.type = event_type::Quit;
             should_close_internal = true;
             break;
         default:
-            e = InputEvent{};
+            e = input_event{};
             break;
         }
     }
@@ -129,57 +129,57 @@ namespace interface
         return static_cast<float>(width) / static_cast<float>(height);
     }
 
-    KeyCode SDLWindow::translate_key_code(SDL_Keycode key)
+    key_code SDLWindow::translate_key_code(SDL_Keycode key)
     {
         switch (key)
         {
         case SDLK_W:
-            return KeyCode::W;
+            return key_code::W;
         case SDLK_A:
-            return KeyCode::A;
+            return key_code::A;
         case SDLK_S:
-            return KeyCode::S;
+            return key_code::S;
         case SDLK_D:
-            return KeyCode::D;
+            return key_code::D;
         case SDLK_Q:
-            return KeyCode::Q;
+            return key_code::Q;
         case SDLK_E:
-            return KeyCode::E;
+            return key_code::E;
         case SDLK_F:
-            return KeyCode::F;
+            return key_code::F;
         case SDLK_SPACE:
-            return KeyCode::Space;
+            return key_code::Space;
         case SDLK_LSHIFT:
-            return KeyCode::LShift;
+            return key_code::LShift;
         case SDLK_LCTRL:
-            return KeyCode::LCtrl;
+            return key_code::LCtrl;
         case SDLK_ESCAPE:
-            return KeyCode::Escape;
+            return key_code::Escape;
         case SDLK_UP:
-            return KeyCode::Up;
+            return key_code::Up;
         case SDLK_DOWN:
-            return KeyCode::Down;
+            return key_code::Down;
         case SDLK_LEFT:
-            return KeyCode::Left;
+            return key_code::Left;
         case SDLK_RIGHT:
-            return KeyCode::Right;
+            return key_code::Right;
         default:
-            return KeyCode::Unknown;
+            return key_code::Unknown;
         }
     }
 
-    MouseButton SDLWindow::translate_mouse_button(uint8_t button)
+    mouse_button SDLWindow::translate_mouse_button(uint8_t button)
     {
         switch (button)
         {
         case SDL_BUTTON_LEFT:
-            return MouseButton::Left;
+            return mouse_button::Left;
         case SDL_BUTTON_MIDDLE:
-            return MouseButton::Middle;
+            return mouse_button::Middle;
         case SDL_BUTTON_RIGHT:
-            return MouseButton::Right;
+            return mouse_button::Right;
         default:
-            return MouseButton::Unknown;
+            return mouse_button::Unknown;
         }
     }
 

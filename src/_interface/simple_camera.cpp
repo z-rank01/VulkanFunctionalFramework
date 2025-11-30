@@ -47,7 +47,7 @@ namespace interface
         last_tick_time = std::chrono::high_resolution_clock::now();
     }
 
-    void simple_camera::tick(const InputEvent& event)
+    void simple_camera::tick(const input_event& event)
     {
         process_mouse_input(event);
         process_keyboard_input(event);
@@ -69,7 +69,7 @@ namespace interface
         }
     }
 
-    void simple_camera::process_keyboard_input(const interface::InputEvent& /*event*/)
+    void simple_camera::process_keyboard_input(const interface::input_event& /*event*/)
     {
         // 1. Calculate Delta Time
         auto current_tick_time = std::chrono::high_resolution_clock::now();
@@ -80,12 +80,12 @@ namespace interface
         if (delta_time > 0.1F) delta_time = 0.016F;
 
         // 2. Helper Lambda: Map keys to axis value (-1.0, 0.0, 1.0)
-        auto get_axis = [&](KeyCode pos_key, KeyCode neg_key, KeyCode alt_pos = KeyCode::Unknown, KeyCode alt_neg = KeyCode::Unknown)
+        auto get_axis = [&](key_code pos_key, key_code neg_key, key_code alt_pos = key_code::Unknown, key_code alt_neg = key_code::Unknown)
         {
             float val = 0.0F;
-            if (pressed_keys.contains(pos_key) || (alt_pos != KeyCode::Unknown && pressed_keys.contains(alt_pos)))
+            if (pressed_keys.contains(pos_key) || (alt_pos != key_code::Unknown && pressed_keys.contains(alt_pos)))
                 val += 1.0F;
-            if (pressed_keys.contains(neg_key) || (alt_neg != KeyCode::Unknown && pressed_keys.contains(alt_neg)))
+            if (pressed_keys.contains(neg_key) || (alt_neg != key_code::Unknown && pressed_keys.contains(alt_neg)))
                 val -= 1.0F;
             return val;
         };
@@ -97,16 +97,16 @@ namespace interface
         if (free_look_mode)
         {
             // Free Look Mapping: W/S->Front, A/D->Right, E/Q->Up(Vertical)
-            input_dir.x = get_axis(KeyCode::D, KeyCode::A, KeyCode::Right, KeyCode::Left);
-            input_dir.y = get_axis(KeyCode::E, KeyCode::Q);
-            input_dir.z = get_axis(KeyCode::W, KeyCode::S, KeyCode::Up, KeyCode::Down);
+            input_dir.x = get_axis(key_code::D, key_code::A, key_code::Right, key_code::Left);
+            input_dir.y = get_axis(key_code::E, key_code::Q);
+            input_dir.z = get_axis(key_code::W, key_code::S, key_code::Up, key_code::Down);
         }
         else
         {
             // Normal Mapping: D/A->X, W/S->Y, E/Q->Z (Note: Q is +Z which is Back, E is -Z which is Front)
-            input_dir.x = get_axis(KeyCode::D, KeyCode::A, KeyCode::Right, KeyCode::Left);
-            input_dir.y = get_axis(KeyCode::W, KeyCode::S, KeyCode::Up, KeyCode::Down);
-            input_dir.z = get_axis(KeyCode::Q, KeyCode::E); // Q moves back (+Z), E moves front (-Z)
+            input_dir.x = get_axis(key_code::D, key_code::A, key_code::Right, key_code::Left);
+            input_dir.y = get_axis(key_code::W, key_code::S, key_code::Up, key_code::Down);
+            input_dir.z = get_axis(key_code::Q, key_code::E); // Q moves back (+Z), E moves front (-Z)
         }
 
         // 4. Update Speed Acceleration
@@ -151,7 +151,7 @@ namespace interface
         }
     }
 
-    void simple_camera::process_mouse_input(const interface::InputEvent& event)
+    void simple_camera::process_mouse_input(const interface::input_event& event)
     {
         // Helper for Free Look Logic
 
@@ -192,30 +192,30 @@ namespace interface
 
         switch (event.type)
         {
-        case EventType::KeyDown:
+        case event_type::KeyDown:
             pressed_keys.insert(event.key.key);
             break;
-        case EventType::KeyUp:
+        case event_type::KeyUp:
             pressed_keys.erase(event.key.key);
             break;
 
-        case EventType::MouseButtonDown:
+        case event_type::MouseButtonDown:
             last_x = event.mouse_button.x;
             last_y = event.mouse_button.y;
-            if (event.mouse_button.button == MouseButton::Right)
+            if (event.mouse_button.button == mouse_button::Right)
                 free_look_mode = true;
-            if (event.mouse_button.button == MouseButton::Middle)
+            if (event.mouse_button.button == mouse_button::Middle)
                 camera_pan_mode = true;
             break;
 
-        case EventType::MouseButtonUp:
-            if (event.mouse_button.button == MouseButton::Right)
+        case event_type::MouseButtonUp:
+            if (event.mouse_button.button == mouse_button::Right)
                 free_look_mode = false;
-            if (event.mouse_button.button == MouseButton::Middle)
+            if (event.mouse_button.button == mouse_button::Middle)
                 camera_pan_mode = false;
             break;
 
-        case EventType::MouseMove:
+        case event_type::MouseMove:
             if (free_look_mode || camera_pan_mode)
             {
                 float x_offset = event.mouse_move.x - last_x;
@@ -230,7 +230,7 @@ namespace interface
             }
             break;
 
-        case EventType::MouseWheel:
+        case event_type::MouseWheel:
         {
             float offset = event.mouse_wheel.y;
             if (camera_data.has_focus_point && camera_data.focus_constraint_enabled)

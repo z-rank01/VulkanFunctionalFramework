@@ -18,7 +18,7 @@ int main()
     // read gltf file
 
     auto loader = gltf::GltfLoader();
-    auto asset  = loader(R"(D:\Assets\Sponza\main1_sponza\NewSponza_Main_glTF_003.gltf)");
+    auto asset  = loader(R"(E:\ModelAssets\buster_drone\scene.gltf)");
     // auto asset = loader("E:\\Assets\\Sponza\\SponzaCurtains\\NewSponza_Curtains_glTF.gltf");
 
     // parse gltf file
@@ -81,7 +81,7 @@ int main()
 
     // general config
 
-    ConfigReader config_reader(R"(D:\Repository\VulkanFunctionalFramework\config\win64\app_config.json)");
+    ConfigReader config_reader(R"(E:\Learning\VulkanFunctionalFramework\config\win64\app_config.json)");
     SGeneralConfig general_config;
     if (!config_reader.TryParseGeneralConfig(general_config))
     {

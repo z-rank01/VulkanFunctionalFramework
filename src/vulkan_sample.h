@@ -202,7 +202,7 @@ private:
     void* uniform_buffer_mapped_data_;
 
     // Input handling members
-    std::unordered_set<interface::KeyCode> pressed_keys_;
+    std::unordered_set<interface::key_code> pressed_keys_;
     float last_x_ = 0.0F;
     float last_y_ = 0.0F;
     // Rename camera_rotation_mode_ to free_look_mode_

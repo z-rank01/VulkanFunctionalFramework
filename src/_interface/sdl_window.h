@@ -19,7 +19,7 @@ namespace interface
 
         void close() override;
 
-        void tick(InputEvent& e) override;
+        void tick(input_event& e) override;
 
         bool should_close() const override;
 
@@ -39,9 +39,9 @@ namespace interface
         SDL_Window* window = nullptr;
         bool should_close_internal  = false;
 
-        static KeyCode translate_key_code(SDL_Keycode key);
+        static key_code translate_key_code(SDL_Keycode key);
 
-        static MouseButton translate_mouse_button(uint8_t button);
+        static mouse_button translate_mouse_button(uint8_t button);
     };
 
 } // namespace interface

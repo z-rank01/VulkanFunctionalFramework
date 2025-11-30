@@ -86,7 +86,7 @@ namespace interface
         virtual ~camera() = default;
 
         // core loop functions per frame
-        virtual void tick(const interface::InputEvent& event) = 0;
+        virtual void tick(const interface::input_event& event) = 0;
 
         // getter - returns type based on attribute
         template <typename T>
