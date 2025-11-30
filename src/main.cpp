@@ -14,11 +14,20 @@ int main()
     std::cout << "Hello, World!" << '\n';
     std::cout << "This is a Vulkan Sample" << '\n';
 
+    // general config
+
+    ConfigReader config_reader(R"(E:\Learning\VulkanFunctionalFramework\config\win64\app_config.json)");
+    SGeneralConfig general_config;
+    if (!config_reader.TryParseGeneralConfig(general_config))
+    {
+        Logger::LogError("Failed to parse general config");
+        return -1;
+    }
+
     // read gltf file
 
     auto loader = gltf::GltfLoader();
-    auto asset  = loader(R"(E:\ModelAssets\buster_drone\scene.gltf)");
-    // auto asset = loader("E:\\Assets\\Sponza\\SponzaCurtains\\NewSponza_Curtains_glTF.gltf");
+    auto asset  = loader(general_config.asset_directory);
 
     // parse gltf file
 

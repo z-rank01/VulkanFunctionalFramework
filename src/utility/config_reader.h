@@ -9,6 +9,7 @@ struct SGeneralConfig
 {
     std::string app_name;
     std::string working_directory;
+    std::string asset_directory;
 };
 
 class ConfigReader
@@ -60,6 +61,7 @@ inline bool ConfigReader::TryParseGeneralConfig(SGeneralConfig& result)
         // Example: Accessing a value from the JSON object
         result.app_name = config_json_["general"]["string"]["app_name"];
         result.working_directory = config_json_["general"]["string"]["working_directory"];
+        result.asset_directory = config_json_["general"]["string"]["asset_directory"];
     }
     catch (const nlohmann::json::exception& e)
     {
