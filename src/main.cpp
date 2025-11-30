@@ -5,10 +5,9 @@
 
 #include "_gltf/gltf_loader.h"
 #include "_gltf/gltf_parser.h"
+#include "app_sample.h"
 #include "utility/config_reader.h"
 #include "utility/logger.h"
-#include "vulkan_sample.h"
-
 
 int main()
 {
@@ -24,7 +23,7 @@ int main()
     // parse gltf file
 
     gltf::GltfParser parser;
-    auto mesh_list = parser(asset, gltf::RequestMeshList{});
+    auto mesh_list           = parser(asset, gltf::RequestMeshList{});
     auto draw_call_data_list = parser(asset, gltf::RequestDrawCallList{});
     // Transform vertex positions using the draw call's transform matrix (functional expression)
     std::ranges::for_each(draw_call_data_list,
@@ -34,9 +33,8 @@ int main()
                               std::ranges::for_each(primitive.vertices,
                                                     [&](gltf::Vertex& vertex)
                                                     {
-                                                        glm::vec4 transformed_position =
-                                                            transform * glm::vec4(vertex.position, 1.0F);
-                                                        vertex.position = glm::vec3(transformed_position);
+                                                        glm::vec4 transformed_position = transform * glm::vec4(vertex.position, 1.0F);
+                                                        vertex.position                = glm::vec3(transformed_position);
                                                     });
                           });
 
@@ -50,13 +48,11 @@ int main()
     auto index_capacity  = std::accumulate(draw_call_data_list.begin(),
                                           draw_call_data_list.end(),
                                           0,
-                                          [&](const auto& sum, const auto& draw_call_data)
-                                          { return sum + draw_call_data.indices.size(); });
+                                          [&](const auto& sum, const auto& draw_call_data) { return sum + draw_call_data.indices.size(); });
     auto vertex_capacity = std::accumulate(draw_call_data_list.begin(),
                                            draw_call_data_list.end(),
                                            0,
-                                           [&](const auto& sum, const auto& draw_call_data)
-                                           { return sum + draw_call_data.vertices.size(); });
+                                           [&](const auto& sum, const auto& draw_call_data) { return sum + draw_call_data.vertices.size(); });
     indices.reserve(index_capacity);
     vertices.reserve(vertex_capacity);
 
@@ -79,16 +75,6 @@ int main()
     window_config.height = kWindowHeight;
     window_config.title  = window_name;
 
-    // general config
-
-    ConfigReader config_reader(R"(E:\Learning\VulkanFunctionalFramework\config\win64\app_config.json)");
-    SGeneralConfig general_config;
-    if (!config_reader.TryParseGeneralConfig(general_config))
-    {
-        Logger::LogError("Failed to parse general config");
-        return -1;
-    }
-
     // engine config
 
     SEngineConfig config;
@@ -99,11 +85,11 @@ int main()
 
     // main loop
 
-    VulkanSample sample(config);
-    sample.GetVertexIndexData(draw_call_data_list, indices, vertices);
-    sample.GetMeshList(mesh_list);
-    sample.Initialize();
-    sample.Run();
+    app_sample sample(config);
+    sample.get_vertex_index_data(draw_call_data_list, indices, vertices);
+    sample.get_mesh_list(mesh_list);
+    sample.initialize();
+    sample.tick();
 
     std::cout << "Goodbye" << '\n';
 

@@ -1,27 +1,28 @@
+#pragma once
 #include <memory>
+#include <string>
+#include <vector>
 
 #include "_interface/camera.h"
 #include "_interface/window.h"
-
-struct window_config
-{
-    int width;
-    int height;
-    std::string title;
-    [[nodiscard]] constexpr auto validate() const -> bool { return width > 0 && height > 0; }
-};
-
+#include "vulkan_sample.h"
 
 class app_sample
 {
 public:
+    app_sample(SEngineConfig config);
     // core public function
     void initialize();
     void tick();
 
+    void get_vertex_index_data(std::vector<gltf::PerDrawCallData> per_draw_call_data, std::vector<uint32_t> indices, std::vector<gltf::Vertex> vertices);
+    void get_mesh_list(const std::vector<gltf::PerMeshData>& mesh_list);
+
 private:
     // core member
-    std::unique_ptr<interface::Window> window_;
-    std::unique_ptr<interface::camera> camera_;
-    window_config window_config_;
+    std::unique_ptr<interface::Window> window;
+    std::unique_ptr<interface::camera> camera;
+    std::unique_ptr<VulkanSample> vulkan_sample;
+
+    SEngineConfig general_config;
 };

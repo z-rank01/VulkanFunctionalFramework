@@ -34,10 +34,14 @@ VulkanSample::VulkanSample(SEngineConfig config) : engine_config_(std::move(conf
 
 void VulkanSample::Initialize()
 {
+    // initialize mvp matrices
+    mvp_matrices_ =
+        std::vector<SMvpMatrix>(engine_config_.frame_count, {.model = glm::mat4(1.0F), .view = glm::mat4(1.0F), .projection = glm::mat4(1.0F)});
+
     // initialize SDL, vulkan, and camera
     initialize_vulkan_hpp();
-    initialize_window();
-    initialize_camera();
+    // initialize_window(); // Removed
+    // initialize_camera(); // Removed
     initialize_vulkan();
 }
 
@@ -125,8 +129,6 @@ VulkanSample::~VulkanSample()
     // release unique pointer
 
     vk_shader_helper_.reset();
-    window_->close();
-    window_.reset();
     vk_renderpass_helper_.reset();
     vk_pipeline_helper_.reset();
     vk_frame_buffer_helper_.reset();
@@ -148,20 +150,7 @@ void VulkanSample::initialize_vulkan_hpp()
     VULKAN_HPP_DEFAULT_DISPATCHER.init();
 }
 
-// Initialize the engine
-void VulkanSample::initialize_window()
-{
-    window_ = std::make_unique<interface::SDLWindow>();
-    interface::WindowConfig config;
-    config.title  = engine_config_.window_config.title;
-    config.width  = engine_config_.window_config.width;
-    config.height = engine_config_.window_config.height;
 
-    if (!window_->open(config))
-    {
-        throw std::runtime_error("Failed to create window.");
-    }
-}
 
 void VulkanSample::initialize_vulkan()
 {
@@ -235,56 +224,20 @@ void VulkanSample::initialize_vulkan()
     }
 }
 
-void VulkanSample::initialize_camera()
+
+
+void VulkanSample::Tick()
 {
-    // initialize mvp matrices
-    mvp_matrices_ =
-        std::vector<SMvpMatrix>(engine_config_.frame_count, {.model = glm::mat4(1.0F), .view = glm::mat4(1.0F), .projection = glm::mat4(1.0F)});
-
-    // initialize camera
-    simple_camera_ = std::make_unique<interface::simple_camera>();
-}
-
-// Main loop
-void VulkanSample::Run()
-{
-    engine_state_ = EWindowState::kRunning;
-
-    // main loop
-    interface::input_event e{};
-    while (engine_state_ != EWindowState::kStopped)
+    if (resize_request_)
     {
-        // handle events on queue
-        window_->tick(e);
-        if (window_->should_close())
-        {
-            engine_state_ = EWindowState::kStopped;
-        }
-        simple_camera_->tick(e);
-
-        // do not draw if we are minimized
-        if (render_state_ == ERenderState::kFalse)
-        {
-            // throttle the speed to avoid the endless spinning
-            constexpr auto sleep_duration_ms = 100;
-            std::this_thread::sleep_for(std::chrono::milliseconds(sleep_duration_ms));
-            continue;
-        }
-
-        if (resize_request_)
-        {
-            resize_swapchain();
-        }
-
-        // update the view matrix
-        update_uniform_buffer(frame_index_);
-
-        // render a frame
-        Draw();
+        resize_swapchain();
     }
 
-    // wait until the GPU is completely idle before cleaning up
-    vkDeviceWaitIdle(comm_vk_logical_device_);
+    // update the view matrix
+    update_uniform_buffer(frame_index_);
+
+    // render a frame
+    Draw();
 }
 
 // Main render loop
@@ -1000,9 +953,9 @@ bool VulkanSample::record_command(uint32_t image_index, const std::string& comma
 
 void VulkanSample::update_uniform_buffer(uint32_t current_frame_index)
 {
-    mvp_matrices_[current_frame_index].model      = simple_camera_->get_matrix(interface::transform_matrix_type::model);
-    mvp_matrices_[current_frame_index].view       = simple_camera_->get_matrix(interface::transform_matrix_type::view);
-    mvp_matrices_[current_frame_index].projection = simple_camera_->get_matrix(interface::transform_matrix_type::projection);
+    mvp_matrices_[current_frame_index].model      = camera_->get_matrix(interface::transform_matrix_type::model);
+    mvp_matrices_[current_frame_index].view       = camera_->get_matrix(interface::transform_matrix_type::view);
+    mvp_matrices_[current_frame_index].projection = camera_->get_matrix(interface::transform_matrix_type::projection);
     // reverse the Y-axis in Vulkan's NDC coordinate system
     mvp_matrices_[current_frame_index].projection[1][1] *= -1;
 
