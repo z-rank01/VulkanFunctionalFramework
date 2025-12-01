@@ -931,7 +931,7 @@ namespace templates::common
                                          {
                                              const auto& family = ctx.queue_family_properties_[idx];
                                              return (family.queueFlags & vk::QueueFlagBits::eCompute) &&
-                                                    !(family.queueFlags & (vk::QueueFlagBits::eGraphics | vk::QueueFlagBits::eTransfer));
+                                                    !(family.queueFlags & vk::QueueFlagBits::eGraphics);
                                          });
                 if (dedicated_compute != std::ranges::end(std::views::iota(0U, static_cast<uint32_t>(ctx.queue_family_properties_.size()))))
                 {
