@@ -323,6 +323,7 @@ bool VulkanSample::create_logical_device()
     auto device_chain = common::logicaldevice::create_logical_device_context(comm_vk_physical_device_context_) |
                         common::logicaldevice::require_extensions({vk::KHRSwapchainExtensionName}) |
                         common::logicaldevice::add_graphics_queue("main_graphics", surface_) | common::logicaldevice::add_transfer_queue("upload") |
+                        common::logicaldevice::add_compute_queue("compute_async") |
                         common::logicaldevice::validate_device_configuration() | common::logicaldevice::create_logical_device();
 
     auto result = device_chain.evaluate();
