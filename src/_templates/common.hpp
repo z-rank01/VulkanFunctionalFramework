@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
+#include <iostream>
 #include <numeric>
 #include <optional>
 #include <ranges>
@@ -429,7 +430,12 @@ inline auto select_physical_device()
     {
         // Enumerate physical devices
         auto physical_device = ctx.vk_instance_.enumeratePhysicalDevices();
-        // vkEnumeratePhysicalDevices(ctx.vk_instance_, &device_count, nullptr);
+        std::ranges::for_each(physical_device,
+                      [](const auto& device)
+                      {
+                      // Just print device names for debugging
+                      std::cout << "Found device: " << device.getProperties().deviceName << '\n';
+                      });
 
         if (physical_device.empty())
         {
@@ -746,6 +752,7 @@ inline auto select_physical_device()
             return callable::Chainable<CommVkPhysicalDeviceContext>(
                 callable::error<CommVkPhysicalDeviceContext>("No suitable physical device found"));
         }
+        std::cout << "Selected device: " << ctx.device_properties_.deviceName << '\n';
         return callable::make_chain(std::move(ctx));
     };
 }
@@ -1070,6 +1077,19 @@ inline auto create_logical_device()
             }
         }
 
+        // Validate and clamp queue counts
+        for (auto& [family_index, queue_info] : family_queue_infos)
+        {
+            uint32_t available_count = ctx.queue_family_properties_[family_index].queueCount;
+            if (queue_info.queueCount > available_count)
+            {
+                std::cerr << "Warning: Requested " << queue_info.queueCount << " queues for family " << family_index << ", but only "
+                          << available_count << " are available. "
+                          << "Queues will be shared.\n";
+                queue_info.setQueueCount(available_count);
+            }
+        }
+
         // Update priority pointers
         for (auto& [family_index, queue_info] : family_queue_infos)
         {
@@ -1125,9 +1145,15 @@ inline auto create_logical_device()
             uint32_t family_index = queue_info.queue_family_index_;
             uint32_t& counter     = family_queue_counters[family_index];
 
+            // Get the actual number of queues created for this family (clamped value)
+            uint32_t created_count = family_queue_infos[family_index].queueCount;
+
             for (uint32_t i = 0; i < queue_info.queue_count_; ++i)
             {
-                vk::Queue queue = ctx.vk_logical_device_.getQueue(family_index, counter);
+                // Use modulo to map logical request to available physical queue
+                uint32_t physical_index = counter % created_count;
+
+                vk::Queue queue = ctx.vk_logical_device_.getQueue(family_index, physical_index);
 
                 // Store in named queues (use index suffix for multiple queues)
                 std::string queue_name = queue_info.queue_name_;
@@ -1139,6 +1165,15 @@ inline auto create_logical_device()
 
                 // Store in family queues
                 ctx.family_queues_[family_index].emplace_back(queue);
+
+                // Log queue capabilities
+                const auto& family_props = ctx.queue_family_properties_[family_index];
+                std::cout << "Queue '" << queue_name << "' (Family " << family_index << ", Index " << physical_index << ") created. Capabilities: ";
+                if (family_props.queueFlags & vk::QueueFlagBits::eGraphics) std::cout << "Graphics ";
+                if (family_props.queueFlags & vk::QueueFlagBits::eCompute) std::cout << "Compute ";
+                if (family_props.queueFlags & vk::QueueFlagBits::eTransfer) std::cout << "Transfer ";
+                if (family_props.queueFlags & vk::QueueFlagBits::eSparseBinding) std::cout << "SparseBinding ";
+                std::cout << "\n";
 
                 ++counter;
             }
