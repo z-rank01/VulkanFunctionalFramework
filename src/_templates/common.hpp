@@ -693,7 +693,7 @@ inline auto select_physical_device()
             if (ctx.selection_criteria_.prefer_discrete_gpu_ &&
                 properties.deviceType == vk::PhysicalDeviceType::eDiscreteGpu)
             {
-                score += 1000;
+                score += 10000;
             }
             else if (properties.deviceType == vk::PhysicalDeviceType::eIntegratedGpu)
             {
@@ -718,7 +718,15 @@ inline auto select_physical_device()
                                 vk::DeviceSize{0},
                                 [](vk::DeviceSize sum, const auto& heap) { return sum + heap.size; });
 
-            score += static_cast<int>(total_memory / (static_cast<vk::DeviceSize>(1024 * 1024)));
+            // Memory score: 100 points per GB
+            int memory_score = static_cast<int>(total_memory / (static_cast<vk::DeviceSize>(1024 * 1024 * 1024))) * 100;
+            // Reduce memory score weight for integrated GPUs as they use shared system memory
+            if (properties.deviceType == vk::PhysicalDeviceType::eIntegratedGpu)
+            {
+                memory_score /= 2;
+            }
+
+            score += memory_score;
 
             // Create context copy with updated data
             CommVkPhysicalDeviceContext result_ctx = ctx;
