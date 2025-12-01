@@ -69,59 +69,7 @@ struct SMvpMatrix
     glm::mat4 projection;
 };
 
-struct SCamera
-{
-    glm::vec3 position;
-    glm::vec3 front;
-    glm::vec3 up;
-    glm::vec3 right;
-    glm::vec3 world_up;
-    float yaw;
-    float pitch;
-    float movement_speed;
-    float wheel_speed;
-    float mouse_sensitivity;
-    float zoom;
 
-    // 聚焦点相关
-    glm::vec3 focus_point;
-    bool has_focus_point;
-    float focus_distance;
-    float min_focus_distance;
-    float max_focus_distance;
-
-    // Add focus constraint enabled flag
-    bool focus_constraint_enabled_;
-
-    SCamera(glm::vec3 pos       = glm::vec3(0.0f, 0.0f, 0.0f),
-            glm::vec3 up        = glm::vec3(0.0f, 1.0f, 0.0f),
-            float initial_yaw   = -90.0f,
-            float initial_pitch = 0.0f)
-        : position(pos), world_up(up), yaw(initial_yaw), pitch(initial_pitch), movement_speed(2.5f), wheel_speed(0.01f),
-          mouse_sensitivity(0.1f), zoom(45.0f),
-          // Initialize focus constraint enabled flag
-          focus_constraint_enabled_(true) // Default to enabled
-    {
-        UpdateCameraVectors();
-    }
-
-    void UpdateCameraVectors()
-    {
-        // if (pitch > 89.0f) pitch = 89.0f;
-        // if (pitch < -89.0f) pitch = -89.0f;
-
-        // 在Vulkan坐标系中计算相机方向：+X向右，+Y向上，+Z向屏幕外
-        glm::vec3 new_front;
-        new_front.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
-        new_front.y = sin(glm::radians(pitch)); // Y轴向上
-        new_front.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
-        front       = glm::normalize(new_front);
-
-        // 计算右向量和上向量
-        right = glm::normalize(glm::cross(front, world_up));
-        up    = glm::normalize(glm::cross(right, front));
-    }
-};
 
 class VulkanSample
 {
@@ -130,7 +78,7 @@ public:
     VulkanSample(SEngineConfig config);
     ~VulkanSample();
 
-    void Run();
+    void Tick();
     void Draw();
 
     static VulkanSample& GetInstance();
@@ -140,6 +88,9 @@ public:
                             std::vector<gltf::Vertex> vertices);
     void GetMeshList(const std::vector<gltf::PerMeshData>& mesh_list);
 
+    void SetWindow(interface::Window* window) { window_ = window; }
+    void SetCamera(interface::camera* camera) { camera_ = camera; }
+
 private:
 #define FRAME_INDEX_TO_UNIFORM_BUFFER_ID(frame_index) (frame_index + 4)
     // engine members
@@ -148,7 +99,6 @@ private:
     EWindowState engine_state_;
     ERenderState render_state_;
     SEngineConfig engine_config_;
-    SCamera camera_;
     std::vector<SOutputFrame> output_frames_;
 
     // mesh data members
@@ -189,7 +139,7 @@ private:
     vk::VertexInputAttributeDescription vertex_input_attribute_color_;
 
     // vulkan helper members
-    std::unique_ptr<interface::Window> window_;
+    interface::Window* window_ = nullptr;
     std::unique_ptr<VulkanShaderHelper> vk_shader_helper_;
     std::unique_ptr<VulkanRenderpassHelper> vk_renderpass_helper_;
     std::unique_ptr<VulkanPipelineHelper> vk_pipeline_helper_;
@@ -211,9 +161,7 @@ private:
     float orbit_distance_ = 0.0F;  // 轨道旋转时与中心的距离
 
     void initialize_vulkan_hpp();
-    void initialize_window();
     void initialize_vulkan();
-    void initialize_camera();
 
     // --- Vulkan Initialization Steps ---
     void generate_frame_structs();
@@ -243,7 +191,7 @@ private:
     // -------------------------
 
     // --- camera control ---
-    std::unique_ptr<interface::camera> simple_camera_;
+    interface::camera* camera_ = nullptr;
     
     // --- Common Templates Test ---
     vk::Instance comm_vk_instance_;
