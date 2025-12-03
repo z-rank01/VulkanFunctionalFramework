@@ -954,9 +954,12 @@ bool VulkanSample::record_command(uint32_t image_index, const std::string& comma
 
 void VulkanSample::update_uniform_buffer(uint32_t current_frame_index)
 {
-    mvp_matrices_[current_frame_index].model      = camera_->get_matrix(interface::transform_matrix_type::model);
-    mvp_matrices_[current_frame_index].view       = camera_->get_matrix(interface::transform_matrix_type::view);
-    mvp_matrices_[current_frame_index].projection = camera_->get_matrix(interface::transform_matrix_type::projection);
+    // mvp_matrices_[current_frame_index].model      = camera_->get_matrix(interface::transform_matrix_type::model);
+    // mvp_matrices_[current_frame_index].view       = camera_->get_matrix(interface::transform_matrix_type::view);
+    // mvp_matrices_[current_frame_index].projection = camera_->get_matrix(interface::transform_matrix_type::projection);
+    mvp_matrices_[current_frame_index].model      = glm::mat4(1.0F);
+    mvp_matrices_[current_frame_index].view       = dod_camera::get_view_matrix(camera_container_->entities[camera_entity_index_]);
+    mvp_matrices_[current_frame_index].projection = dod_camera::get_projection_matrix(camera_container_->entities[camera_entity_index_], camera_container_->configs[camera_entity_index_]);
     // reverse the Y-axis in Vulkan's NDC coordinate system
     mvp_matrices_[current_frame_index].projection[1][1] *= -1;
 

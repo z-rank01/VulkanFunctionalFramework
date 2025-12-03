@@ -21,6 +21,7 @@
 #include "_templates/common.hpp"
 #include "_vra/vra.h"
 #include "utility/config_reader.h"
+#include "_interface/camera_system.h"
 
 enum class EWindowState : std::uint8_t
 {
@@ -89,7 +90,9 @@ public:
     void GetMeshList(const std::vector<gltf::PerMeshData>& mesh_list);
 
     void SetWindow(interface::Window* window) { window_ = window; }
-    void SetCamera(interface::camera* camera) { camera_ = camera; }
+    // void SetCamera(interface::camera* camera) { camera_ = camera; }
+    void SetCameraContainer(dod_camera::camera_container* container) {  camera_container_ = container; }
+    void SetCameraIndex(size_t index) {  camera_entity_index_ = index; }
 
 private:
 #define FRAME_INDEX_TO_UNIFORM_BUFFER_ID(frame_index) (frame_index + 4)
@@ -191,7 +194,9 @@ private:
     // -------------------------
 
     // --- camera control ---
-    interface::camera* camera_ = nullptr;
+    // interface::camera* camera_ = nullptr;
+    dod_camera::camera_container* camera_container_ = nullptr;
+    size_t camera_entity_index_ = 0;
     
     // --- Common Templates Test ---
     vk::Instance comm_vk_instance_;
