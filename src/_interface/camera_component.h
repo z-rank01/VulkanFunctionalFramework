@@ -6,7 +6,7 @@ namespace dod_camera
     // Hot Data Block
     // 1. frequently accessed data
     // 2. update together most of the time
-    struct camera_entity
+    struct camera_transform
     {
         glm::vec3 position{0.0F, 0.0F, 10.0F};
         glm::vec3 front{0.0F, 0.0F, -1.0F};
@@ -61,16 +61,16 @@ namespace dod_camera
     // Container to hold all camera data blocks
     struct camera_container
     {
-        std::vector<camera_entity> entities;
+        std::vector<camera_transform> transforms;
         std::vector<camera_config> configs;
 
         // use size_t as index to identify cameras
         // because size_t is large enough to hold all possible indices
-        size_t add_camera(const camera_entity& entity = camera_entity(), const camera_config& config = camera_config())
+        size_t add_camera(const camera_transform& entity = camera_transform(), const camera_config& config = camera_config())
         {
-            entities.push_back(entity);
+            transforms.push_back(entity);
             configs.push_back(config);
-            return entities.size() - 1;
+            return transforms.size() - 1;
         }
     };
 } // namespace dod_camera

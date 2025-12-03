@@ -89,9 +89,9 @@ namespace dod_camera
 
     inline void update_camera(camera_container& container, const camera_update_context& ctx, float delta_time)
     {
-        for (size_t i = 0; i < container.entities.size(); ++i)
+        for (size_t i = 0; i < container.transforms.size(); ++i)
         {
-            auto& entity        = container.entities[i];
+            auto& entity        = container.transforms[i];
             const auto& config = container.configs[i];
 
             // rotation (Free Look)
@@ -169,13 +169,13 @@ namespace dod_camera
 
     // functions to get view and projection matrices
 
-    inline glm::mat4 get_view_matrix(const camera_entity& entity)
+    inline glm::mat4 get_view_matrix(const camera_transform& transform)
     {
-        return glm::lookAt(entity.position, entity.position + entity.front, entity.up);
+        return glm::lookAt(transform.position, transform.position + transform.front, transform.up);
     }
 
-    inline glm::mat4 get_projection_matrix(const camera_entity& entity, const camera_config& config)
+    inline glm::mat4 get_projection_matrix(const camera_transform& transform, const camera_config& config)
     {
-        return glm::perspective(glm::radians(entity.current_zoom), config.aspect_ratio, config.near_plane, config.far_plane);
+        return glm::perspective(glm::radians(transform.current_zoom), config.aspect_ratio, config.near_plane, config.far_plane);
     }
 } // namespace dod_camera
