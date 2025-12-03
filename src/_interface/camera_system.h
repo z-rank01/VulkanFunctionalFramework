@@ -91,67 +91,67 @@ namespace dod_camera
     {
         for (size_t i = 0; i < container.transforms.size(); ++i)
         {
-            auto& entity        = container.transforms[i];
+            auto& transform        = container.transforms[i];
             const auto& config = container.configs[i];
 
             // rotation (Free Look)
             if (ctx.is_free_look_active && (std::abs(ctx.mouse_delta_x) > 0.0001F || std::abs(ctx.mouse_delta_y) > 0.0001F))
             {
-                entity.yaw += ctx.mouse_delta_x * config.mouse_sensitivity;
-                entity.pitch -= ctx.mouse_delta_y * config.mouse_sensitivity; // reverse Y
-                entity.pitch = std::min(entity.pitch, 89.0F);
-                entity.pitch = std::max(entity.pitch, -89.0F);
-                entity.dirty = true;
+                transform.yaw += ctx.mouse_delta_x * config.mouse_sensitivity;
+                transform.pitch -= ctx.mouse_delta_y * config.mouse_sensitivity; // reverse Y
+                transform.pitch = std::min(transform.pitch, 89.0F);
+                transform.pitch = std::max(transform.pitch, -89.0F);
+                transform.dirty = true;
             }
 
             // zoom
             if (std::abs(ctx.scroll_delta_y) > 0.0001F)
             {
-                entity.current_zoom -= ctx.scroll_delta_y * config.zoom_speed;
-                entity.current_zoom = std::max(entity.current_zoom, 1.0F);
-                entity.current_zoom = std::min(entity.current_zoom, 45.0F);
-                entity.dirty = true;
+                transform.current_zoom -= ctx.scroll_delta_y * config.zoom_speed;
+                transform.current_zoom = std::max(transform.current_zoom, 1.0F);
+                transform.current_zoom = std::min(transform.current_zoom, 45.0F);
+                transform.dirty = true;
             }
 
             // update camera vectors if dirty
-            if (entity.dirty)
+            if (transform.dirty)
             {
                 glm::vec3 front;
-                front.x     = cos(glm::radians(entity.yaw)) * cos(glm::radians(entity.pitch));
-                front.y     = sin(glm::radians(entity.pitch));
-                front.z     = sin(glm::radians(entity.yaw)) * cos(glm::radians(entity.pitch));
-                entity.front = glm::normalize(front);
-                entity.right = glm::normalize(glm::cross(entity.front, entity.world_up));
-                entity.up    = glm::normalize(glm::cross(entity.right, entity.front));
-                entity.dirty = false;
+                front.x     = cos(glm::radians(transform.yaw)) * cos(glm::radians(transform.pitch));
+                front.y     = sin(glm::radians(transform.pitch));
+                front.z     = sin(glm::radians(transform.yaw)) * cos(glm::radians(transform.pitch));
+                transform.front = glm::normalize(front);
+                transform.right = glm::normalize(glm::cross(transform.front, transform.world_up));
+                transform.up    = glm::normalize(glm::cross(transform.right, transform.front));
+                transform.dirty = false;
             }
 
             // movement (free look mode)
             float velocity = config.movement_speed * delta_time;
             glm::vec3 move_dir(0.0F);
             if (ctx.move_forward)
-                move_dir += entity.front;
+                move_dir += transform.front;
             if (ctx.move_backward)
-                move_dir -= entity.front;
+                move_dir -= transform.front;
             if (ctx.move_right)
-                move_dir += entity.right;
+                move_dir += transform.right;
             if (ctx.move_left)
-                move_dir -= entity.right;
+                move_dir -= transform.right;
             if (ctx.move_up)
-                move_dir += entity.world_up;
+                move_dir += transform.world_up;
             if (ctx.move_down)
-                move_dir -= entity.world_up;
+                move_dir -= transform.world_up;
 
             if (glm::length(move_dir) > 0.0F)
             {
-                entity.position += glm::normalize(move_dir) * velocity;
+                transform.position += glm::normalize(move_dir) * velocity;
             }
 
             // movement (pan mode)
             if (ctx.is_panning_active)
             {
-                entity.position -= entity.right * ctx.mouse_delta_x * config.mouse_sensitivity * 0.1F;
-                entity.position += entity.up * ctx.mouse_delta_y * config.mouse_sensitivity * 0.1F;
+                transform.position -= transform.right * ctx.mouse_delta_x * config.mouse_sensitivity * 0.1F;
+                transform.position += transform.up * ctx.mouse_delta_y * config.mouse_sensitivity * 0.1F;
             }
         }
     }
