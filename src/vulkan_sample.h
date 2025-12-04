@@ -9,8 +9,8 @@
 #include <unordered_set>
 
 #include "_gltf/gltf_data.h"
+#include "_interface/camera_system.h"
 #include "_interface/sdl_window.h" // For default implementation
-#include "_interface/simple_camera.h"
 #include "_interface/window.h"
 #include "_old/vulkan_commandbuffer.h"
 #include "_old/vulkan_framebuffer.h"
@@ -21,6 +21,7 @@
 #include "_templates/common.hpp"
 #include "_vra/vra.h"
 #include "utility/config_reader.h"
+
 
 enum class EWindowState : std::uint8_t
 {
@@ -69,8 +70,6 @@ struct SMvpMatrix
     glm::mat4 projection;
 };
 
-
-
 class VulkanSample
 {
 public:
@@ -83,13 +82,13 @@ public:
 
     static VulkanSample& GetInstance();
     void Initialize();
-    void GetVertexIndexData(std::vector<gltf::PerDrawCallData> per_draw_call_data,
-                            std::vector<uint32_t> indices,
-                            std::vector<gltf::Vertex> vertices);
+    void GetVertexIndexData(std::vector<gltf::PerDrawCallData> per_draw_call_data, std::vector<uint32_t> indices, std::vector<gltf::Vertex> vertices);
     void GetMeshList(const std::vector<gltf::PerMeshData>& mesh_list);
 
     void SetWindow(interface::Window* window) { window_ = window; }
-    void SetCamera(interface::camera* camera) { camera_ = camera; }
+    // void SetCamera(interface::camera* camera) { camera_ = camera; }
+    void SetCameraContainer(interface::camera_container* container) { camera_container_ = container; }
+    void SetCameraIndex(size_t index) { camera_entity_index_ = index; }
 
 private:
 #define FRAME_INDEX_TO_UNIFORM_BUFFER_ID(frame_index) (frame_index + 4)
@@ -191,8 +190,10 @@ private:
     // -------------------------
 
     // --- camera control ---
-    interface::camera* camera_ = nullptr;
-    
+    // interface::camera* camera_ = nullptr;
+    interface::camera_container* camera_container_ = nullptr;
+    size_t camera_entity_index_                    = 0;
+
     // --- Common Templates Test ---
     vk::Instance comm_vk_instance_;
     vk::PhysicalDevice comm_vk_physical_device_;

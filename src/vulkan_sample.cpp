@@ -3,15 +3,13 @@
 
 #include "vulkan_sample.h"
 
-#include <algorithm>
-#include <cmath>
 #include <cstdint>
 #include <iostream>
-#include <thread>
 #include <vulkan/vulkan.hpp>
 #include <vulkan/vulkan_enums.hpp>
 
 #include "_callable/callable.h"
+#include "_interface/camera_system.h"
 #include "_templates/common.hpp"
 
 VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE;
@@ -150,8 +148,6 @@ void VulkanSample::initialize_vulkan_hpp()
     VULKAN_HPP_DEFAULT_DISPATCHER.init();
 }
 
-
-
 void VulkanSample::initialize_vulkan()
 {
     generate_frame_structs();
@@ -223,8 +219,6 @@ void VulkanSample::initialize_vulkan()
         throw std::runtime_error("Failed to create Vulkan synchronization objects.");
     }
 }
-
-
 
 void VulkanSample::Tick()
 {
@@ -323,8 +317,8 @@ bool VulkanSample::create_logical_device()
     auto device_chain = common::logicaldevice::create_logical_device_context(comm_vk_physical_device_context_) |
                         common::logicaldevice::require_extensions({vk::KHRSwapchainExtensionName}) |
                         common::logicaldevice::add_graphics_queue("main_graphics", surface_) | common::logicaldevice::add_transfer_queue("upload") |
-                        common::logicaldevice::add_compute_queue("compute_async") |
-                        common::logicaldevice::validate_device_configuration() | common::logicaldevice::create_logical_device();
+                        common::logicaldevice::add_compute_queue("compute_async") | common::logicaldevice::validate_device_configuration() |
+                        common::logicaldevice::create_logical_device();
 
     auto result = device_chain.evaluate();
     if (!callable::is_ok(result))
@@ -954,9 +948,12 @@ bool VulkanSample::record_command(uint32_t image_index, const std::string& comma
 
 void VulkanSample::update_uniform_buffer(uint32_t current_frame_index)
 {
-    mvp_matrices_[current_frame_index].model      = camera_->get_matrix(interface::transform_matrix_type::model);
-    mvp_matrices_[current_frame_index].view       = camera_->get_matrix(interface::transform_matrix_type::view);
-    mvp_matrices_[current_frame_index].projection = camera_->get_matrix(interface::transform_matrix_type::projection);
+    // mvp_matrices_[current_frame_index].model      = camera_->get_matrix(interface::transform_matrix_type::model);
+    // mvp_matrices_[current_frame_index].view       = camera_->get_matrix(interface::transform_matrix_type::view);
+    // mvp_matrices_[current_frame_index].projection = camera_->get_matrix(interface::transform_matrix_type::projection);
+    mvp_matrices_[current_frame_index].model        = glm::mat4(1.0F);
+    mvp_matrices_[current_frame_index].view         = interface::get_view_matrix(camera_container_->transforms[camera_entity_index_]);
+    mvp_matrices_[current_frame_index].projection   = interface::get_projection_matrix(camera_container_->transforms[camera_entity_index_], camera_container_->configs[camera_entity_index_]);
     // reverse the Y-axis in Vulkan's NDC coordinate system
     mvp_matrices_[current_frame_index].projection[1][1] *= -1;
 

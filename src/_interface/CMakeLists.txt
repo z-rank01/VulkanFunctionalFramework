@@ -7,11 +7,8 @@ add_library(interface STATIC
         sdl_window.h
         Window.h
         input.h
-        camera.h
-        camera.h
-        simple_camera.cpp
-        simple_camera.h
-        simple_camera.h
+        camera_component.h
+        camera_system.h
 )
 
 target_link_libraries(interface
