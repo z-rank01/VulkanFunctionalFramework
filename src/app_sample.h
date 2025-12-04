@@ -28,8 +28,8 @@ private:
 
     // data-oriented camera
     size_t camera_entity_index = 0;
-    dod_camera::camera_container camera_container;
-    dod_camera::camera_update_context camera_update_context;
+    interface::camera_container camera_container;
+    interface::camera_update_context camera_update_context;
 
     // delta time tracking
     std::chrono::high_resolution_clock::time_point last_frame_time;

@@ -1,7 +1,7 @@
 #pragma once
 #include <glm/glm.hpp>
 
-namespace dod_camera
+namespace interface
 {
     // Hot Data Block
     // 1. frequently accessed data

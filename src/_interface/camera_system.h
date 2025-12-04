@@ -6,7 +6,7 @@
 #include "camera_component.h"
 #include "input.h"
 
-namespace dod_camera
+namespace interface
 {
     // per-frame functions for camera system
 

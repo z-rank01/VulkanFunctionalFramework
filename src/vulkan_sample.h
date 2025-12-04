@@ -91,7 +91,7 @@ public:
 
     void SetWindow(interface::Window* window) { window_ = window; }
     // void SetCamera(interface::camera* camera) { camera_ = camera; }
-    void SetCameraContainer(dod_camera::camera_container* container) {  camera_container_ = container; }
+    void SetCameraContainer(interface::camera_container* container) {  camera_container_ = container; }
     void SetCameraIndex(size_t index) {  camera_entity_index_ = index; }
 
 private:
@@ -195,7 +195,7 @@ private:
 
     // --- camera control ---
     // interface::camera* camera_ = nullptr;
-    dod_camera::camera_container* camera_container_ = nullptr;
+    interface::camera_container* camera_container_ = nullptr;
     size_t camera_entity_index_ = 0;
     
     // --- Common Templates Test ---

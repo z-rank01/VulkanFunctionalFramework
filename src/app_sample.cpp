@@ -47,7 +47,7 @@ void app_sample::tick()
         
         window->tick(event);
         // camera->tick(e);
-        dod_camera::tick(camera_container, camera_update_context, event, delta_time);
+        interface::tick(camera_container, camera_update_context, event, delta_time);
         vulkan_sample->Tick();
     }
 }
