@@ -3,7 +3,6 @@
 #include <string>
 #include <vector>
 
-#include "_interface/camera.h"
 #include "_interface/window.h"
 #include "vulkan_sample.h"
 #include "_interface/camera_component.h"

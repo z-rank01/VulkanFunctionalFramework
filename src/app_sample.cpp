@@ -3,7 +3,6 @@
 #include <stdexcept>
 
 #include "_interface/sdl_window.h" // For default implementation
-#include "_interface/simple_camera.h"
 
 app_sample::app_sample(SEngineConfig config) : general_config(std::move(config))
 {
@@ -42,9 +41,9 @@ void app_sample::tick()
     {
         // calculate delta time
         auto current_time = std::chrono::high_resolution_clock::now();
-        delta_time = std::chrono::duration<float>(current_time - last_frame_time).count();
-        last_frame_time = current_time;
-        
+        delta_time        = std::chrono::duration<float>(current_time - last_frame_time).count();
+        last_frame_time   = current_time;
+
         window->tick(event);
         // camera->tick(e);
         interface::tick(camera_container, camera_update_context, event, delta_time);
