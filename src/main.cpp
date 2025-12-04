@@ -15,7 +15,7 @@ int main()
     std::cout << "This is a Vulkan Sample" << '\n';
 
     // general config
-    config_reader config_reader(R"(D:\Repository\VulkanFunctionalFramework\config\win64\app_config.json)");
+    config_reader config_reader(R"(E:\Learning\VulkanFunctionalFramework\config\win64\app_config.json)");
     general_config general_config;
     if (!config_reader.try_parse_general_config(general_config))
     {
@@ -72,24 +72,10 @@ int main()
         vertices.insert(vertices.end(), draw_call_data.vertices.begin(), draw_call_data.vertices.end());
     }
 
-    // window config
+    // configs
 
-    window_config window_config;
-    const auto kWindowWidth  = 1280;
-    const auto kWindowHeight = 720;
-    const auto* window_name  = "Vulkan Engine";
-
-    window_config.width  = kWindowWidth;
-    window_config.height = kWindowHeight;
-    window_config.title  = window_name;
-
-    // engine config
-
-    engine_config config;
-    config.window_config         = window_config;
-    config.general_config        = general_config;
-    config.frame_count           = 3;
-    config.use_validation_layers = true;
+    window_config window_config = {.width = 1280, .height = 720, .title = "Vulkan Engine"};
+    engine_config config        = {.window_config = window_config, .general_config = general_config, .frame_count = 3, .use_validation_layers = true};
 
     // main loop
 
