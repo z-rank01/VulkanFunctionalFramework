@@ -4,9 +4,9 @@
 
 #include "_interface/sdl_window.h" // For default implementation
 
-app_sample::app_sample(SEngineConfig config) : general_config(std::move(config))
+app_sample::app_sample(engine_config config) : general_config(std::move(config))
 {
-    vulkan_sample = std::make_unique<VulkanSample>(general_config);
+    vulkan_instance = std::make_unique<vulkan_sample>(general_config);
 }
 
 void app_sample::initialize()
@@ -23,15 +23,13 @@ void app_sample::initialize()
     }
 
     // initialize camera
-    // camera = std::make_unique<interface::simple_camera>();
     camera_entity_index = camera_container.add_camera();
 
     // setup vulkan sample
-    vulkan_sample->SetWindow(window.get());
-    // vulkan_sample->SetCamera(camera.get());
-    vulkan_sample->SetCameraContainer(&camera_container);
-    vulkan_sample->SetCameraIndex(camera_entity_index);
-    vulkan_sample->Initialize();
+    vulkan_instance->set_window(window.get());
+    vulkan_instance->set_camera_container(&camera_container);
+    vulkan_instance->set_camera_index(camera_entity_index);
+    vulkan_instance->initialize();
 }
 
 void app_sample::tick()
@@ -45,20 +43,19 @@ void app_sample::tick()
         last_frame_time   = current_time;
 
         window->tick(event);
-        // camera->tick(e);
         interface::tick(camera_container, camera_update_context, event, delta_time);
-        vulkan_sample->Tick();
+        vulkan_instance->tick();
     }
 }
 
-void app_sample::get_vertex_index_data(std::vector<gltf::PerDrawCallData> per_draw_call_data,
+void app_sample::set_vertex_index_data(std::vector<gltf::PerDrawCallData> per_draw_call_data,
                                        std::vector<uint32_t> indices,
                                        std::vector<gltf::Vertex> vertices)
 {
-    vulkan_sample->GetVertexIndexData(std::move(per_draw_call_data), std::move(indices), std::move(vertices));
+    vulkan_instance->set_vertex_index_data(std::move(per_draw_call_data), std::move(indices), std::move(vertices));
 }
 
-void app_sample::get_mesh_list(const std::vector<gltf::PerMeshData>& mesh_list)
+void app_sample::set_mesh_list(const std::vector<gltf::PerMeshData>& mesh_list)
 {
-    vulkan_sample->GetMeshList(mesh_list);
+    vulkan_instance->get_mesh_list(mesh_list);
 }

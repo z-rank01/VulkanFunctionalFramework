@@ -10,19 +10,18 @@
 class app_sample
 {
 public:
-    app_sample(SEngineConfig config);
+    app_sample(engine_config config);
     // core public function
     void initialize();
     void tick();
 
-    void get_vertex_index_data(std::vector<gltf::PerDrawCallData> per_draw_call_data, std::vector<uint32_t> indices, std::vector<gltf::Vertex> vertices);
-    void get_mesh_list(const std::vector<gltf::PerMeshData>& mesh_list);
+    void set_vertex_index_data(std::vector<gltf::PerDrawCallData> per_draw_call_data, std::vector<uint32_t> indices, std::vector<gltf::Vertex> vertices);
+    void set_mesh_list(const std::vector<gltf::PerMeshData>& mesh_list);
 
 private:
     // core member
     std::unique_ptr<interface::window> window;
-    // std::unique_ptr<interface::camera> camera;
-    std::unique_ptr<VulkanSample> vulkan_sample;
+    std::unique_ptr<vulkan_sample> vulkan_instance;
 
     // data-oriented camera
     size_t camera_entity_index = 0;
@@ -34,5 +33,5 @@ private:
     float delta_time;
     
 
-    SEngineConfig general_config;
+    engine_config general_config;
 };

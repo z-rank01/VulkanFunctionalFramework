@@ -19,6 +19,8 @@ int main()
     ConfigReader config_reader(R"(E:\Learning\VulkanFunctionalFramework\config\win64\app_config.json)");
     SGeneralConfig general_config;
     if (!config_reader.TryParseGeneralConfig(general_config))
+    general_config general_config;
+    if (!config_reader.try_parse_general_config(general_config))
     {
         Logger::LogError("Failed to parse general config");
         return -1;
@@ -86,7 +88,7 @@ int main()
 
     // engine config
 
-    SEngineConfig config;
+    engine_config config;
     config.window_config         = window_config;
     config.general_config        = general_config;
     config.frame_count           = 3;
@@ -95,8 +97,8 @@ int main()
     // main loop
 
     app_sample sample(config);
-    sample.get_vertex_index_data(draw_call_data_list, indices, vertices);
-    sample.get_mesh_list(mesh_list);
+    sample.set_vertex_index_data(draw_call_data_list, indices, vertices);
+    sample.set_mesh_list(mesh_list);
     sample.initialize();
     sample.tick();
 
