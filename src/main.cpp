@@ -15,10 +15,7 @@ int main()
     std::cout << "This is a Vulkan Sample" << '\n';
 
     // general config
-
-    ConfigReader config_reader(R"(E:\Learning\VulkanFunctionalFramework\config\win64\app_config.json)");
-    SGeneralConfig general_config;
-    if (!config_reader.TryParseGeneralConfig(general_config))
+    config_reader config_reader(R"(D:\Repository\VulkanFunctionalFramework\config\win64\app_config.json)");
     general_config general_config;
     if (!config_reader.try_parse_general_config(general_config))
     {
