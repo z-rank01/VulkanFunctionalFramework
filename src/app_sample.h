@@ -1,6 +1,5 @@
 #pragma once
 #include <memory>
-#include <string>
 #include <vector>
 
 #include "_interface/window.h"
@@ -21,7 +20,7 @@ public:
 
 private:
     // core member
-    std::unique_ptr<interface::Window> window;
+    std::unique_ptr<interface::window> window;
     // std::unique_ptr<interface::camera> camera;
     std::unique_ptr<VulkanSample> vulkan_sample;
 

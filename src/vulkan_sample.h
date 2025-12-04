@@ -85,7 +85,7 @@ public:
     void GetVertexIndexData(std::vector<gltf::PerDrawCallData> per_draw_call_data, std::vector<uint32_t> indices, std::vector<gltf::Vertex> vertices);
     void GetMeshList(const std::vector<gltf::PerMeshData>& mesh_list);
 
-    void SetWindow(interface::Window* window) { window_ = window; }
+    void SetWindow(interface::window* window) { window_ = window; }
     // void SetCamera(interface::camera* camera) { camera_ = camera; }
     void SetCameraContainer(interface::camera_container* container) { camera_container_ = container; }
     void SetCameraIndex(size_t index) { camera_entity_index_ = index; }
@@ -138,7 +138,7 @@ private:
     vk::VertexInputAttributeDescription vertex_input_attribute_color_;
 
     // vulkan helper members
-    interface::Window* window_ = nullptr;
+    interface::window* window_ = nullptr;
     std::unique_ptr<VulkanShaderHelper> vk_shader_helper_;
     std::unique_ptr<VulkanRenderpassHelper> vk_renderpass_helper_;
     std::unique_ptr<VulkanPipelineHelper> vk_pipeline_helper_;

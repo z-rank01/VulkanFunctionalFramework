@@ -12,8 +12,8 @@ app_sample::app_sample(SEngineConfig config) : general_config(std::move(config))
 void app_sample::initialize()
 {
     // initialize sdl window
-    window = std::make_unique<interface::SDLWindow>();
-    interface::WindowConfig win_config;
+    window = std::make_unique<interface::sdl_window>();
+    interface::window_config win_config;
     win_config.title  = general_config.window_config.title;
     win_config.width  = general_config.window_config.width;
     win_config.height = general_config.window_config.height;

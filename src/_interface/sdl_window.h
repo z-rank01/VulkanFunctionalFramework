@@ -8,14 +8,14 @@
 namespace interface
 {
 
-    class SDLWindow : public Window
+    class sdl_window : public window
     {
     public:
-        SDLWindow();
+        sdl_window();
 
-        ~SDLWindow() override;
+        ~sdl_window() override;
 
-        bool open(const WindowConfig& config) override;
+        bool open(const window_config& config) override;
 
         void close() override;
 

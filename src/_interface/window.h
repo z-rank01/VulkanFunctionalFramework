@@ -2,7 +2,6 @@
 
 #include <vulkan/vulkan.h>
 
-#include <functional>
 #include <string>
 #include <vector>
 
@@ -12,7 +11,7 @@
 namespace interface
 {
 
-    struct WindowConfig
+    struct window_config
     {
         std::string title;
         int width;
@@ -20,12 +19,12 @@ namespace interface
         bool resizable = true;
     };
 
-    class Window
+    class window
     {
     public:
-        virtual ~Window() = default;
+        virtual ~window() = default;
 
-        virtual bool open(const WindowConfig& config) = 0;
+        virtual bool open(const window_config& config) = 0;
 
         virtual void close() = 0;
 

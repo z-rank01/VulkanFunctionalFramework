@@ -6,14 +6,14 @@
 namespace interface
 {
 
-    SDLWindow::SDLWindow() = default;
+    sdl_window::sdl_window() = default;
 
-    SDLWindow::~SDLWindow()
+    sdl_window::~sdl_window()
     {
-        SDLWindow::close();
+        sdl_window::close();
     }
 
-    bool SDLWindow::open(const WindowConfig& config)
+    bool sdl_window::open(const window_config& config)
     {
         if (static_cast<int>(SDL_Init(SDL_INIT_VIDEO)) < 0)
         {
@@ -33,7 +33,7 @@ namespace interface
         return true;
     }
 
-    void SDLWindow::close()
+    void sdl_window::close()
     {
         if (window != nullptr)
         {
@@ -43,7 +43,7 @@ namespace interface
         SDL_Quit();
     }
 
-    void SDLWindow::tick(input_event& e)
+    void sdl_window::tick(input_event& e)
     {
         SDL_Event event;
         SDL_PollEvent(&event);
@@ -98,12 +98,12 @@ namespace interface
         }
     }
 
-    bool SDLWindow::should_close() const
+    bool sdl_window::should_close() const
     {
         return should_close_internal;
     }
 
-    std::vector<const char*> SDLWindow::get_required_instance_extensions() const
+    std::vector<const char*> sdl_window::get_required_instance_extensions() const
     {
         uint32_t count           = 0;
         const char* const* names = SDL_Vulkan_GetInstanceExtensions(&count);
@@ -111,17 +111,17 @@ namespace interface
         return extensions;
     }
 
-    bool SDLWindow::create_vulkan_surface(VkInstance instance, VkSurfaceKHR* surface) const
+    bool sdl_window::create_vulkan_surface(VkInstance instance, VkSurfaceKHR* surface) const
     {
         return SDL_Vulkan_CreateSurface(window, instance, nullptr, surface);
     }
 
-    void SDLWindow::get_extent(int& width, int& height) const
+    void sdl_window::get_extent(int& width, int& height) const
     {
         SDL_GetWindowSize(window, &width, &height);
     }
 
-    float SDLWindow::get_aspect_ratio() const
+    float sdl_window::get_aspect_ratio() const
     {
         int width = 0;
         int height = 0;
@@ -129,7 +129,7 @@ namespace interface
         return static_cast<float>(width) / static_cast<float>(height);
     }
 
-    key_code SDLWindow::translate_key_code(SDL_Keycode key)
+    key_code sdl_window::translate_key_code(SDL_Keycode key)
     {
         switch (key)
         {
@@ -168,7 +168,7 @@ namespace interface
         }
     }
 
-    mouse_button SDLWindow::translate_mouse_button(uint8_t button)
+    mouse_button sdl_window::translate_mouse_button(uint8_t button)
     {
         switch (button)
         {
