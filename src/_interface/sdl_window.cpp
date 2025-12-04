@@ -50,46 +50,46 @@ namespace interface
         switch (event.type)
         {
         case SDL_EVENT_WINDOW_RESIZED:
-            e.type = event_type::Resize;
+            e.type = event_type::resize;
             e.resize.width  = event.window.data1;
             e.resize.height = event.window.data2;
             break;
         case SDL_EVENT_KEY_DOWN:
-            e.type = event_type::KeyDown;
+            e.type = event_type::key_down;
             e.key.key = translate_key_code(event.key.key);
             break;
         case SDL_EVENT_KEY_UP:
-            e.type = event_type::KeyUp;
+            e.type = event_type::key_up;
             e.key.key = translate_key_code(event.key.key);
             break;
         case SDL_EVENT_MOUSE_MOTION:
-            e.type = event_type::MouseMove;
+            e.type = event_type::mouse_move;
             e.mouse_move.x    = event.motion.x;
             e.mouse_move.y    = event.motion.y;
             e.mouse_move.xrel = event.motion.xrel;
             e.mouse_move.yrel = event.motion.yrel;
             break;
         case SDL_EVENT_MOUSE_WHEEL:
-            e.type = event_type::MouseWheel;
+            e.type = event_type::mouse_wheel;
             e.mouse_wheel.x = event.wheel.x;
             e.mouse_wheel.y = event.wheel.y;
             break;
         case SDL_EVENT_MOUSE_BUTTON_DOWN:
-            e.type = event_type::MouseButtonDown;
+            e.type = event_type::mouse_button_down;
             e.mouse_button.button  = translate_mouse_button(event.button.button);
             e.mouse_button.x       = event.button.x;
             e.mouse_button.y       = event.button.y;
             e.mouse_button.pressed = true;
             break;
         case SDL_EVENT_MOUSE_BUTTON_UP:
-            e.type = event_type::MouseButtonUp;
+            e.type = event_type::mouse_button_up;
             e.mouse_button.button  = translate_mouse_button(event.button.button);
             e.mouse_button.x       = event.button.x;
             e.mouse_button.y       = event.button.y;
             e.mouse_button.pressed = false;
             break;
         case SDL_EVENT_QUIT:
-            e.type = event_type::Quit;
+            e.type = event_type::quit;
             should_close_internal = true;
             break;
         default:
@@ -134,37 +134,37 @@ namespace interface
         switch (key)
         {
         case SDLK_W:
-            return key_code::W;
+            return key_code::w;
         case SDLK_A:
-            return key_code::A;
+            return key_code::a;
         case SDLK_S:
-            return key_code::S;
+            return key_code::s;
         case SDLK_D:
-            return key_code::D;
+            return key_code::d;
         case SDLK_Q:
-            return key_code::Q;
+            return key_code::q;
         case SDLK_E:
-            return key_code::E;
+            return key_code::e;
         case SDLK_F:
-            return key_code::F;
+            return key_code::f;
         case SDLK_SPACE:
-            return key_code::Space;
+            return key_code::space;
         case SDLK_LSHIFT:
-            return key_code::LShift;
+            return key_code::lshift;
         case SDLK_LCTRL:
-            return key_code::LCtrl;
+            return key_code::lctrl;
         case SDLK_ESCAPE:
-            return key_code::Escape;
+            return key_code::escape;
         case SDLK_UP:
-            return key_code::Up;
+            return key_code::up;
         case SDLK_DOWN:
-            return key_code::Down;
+            return key_code::down;
         case SDLK_LEFT:
-            return key_code::Left;
+            return key_code::left;
         case SDLK_RIGHT:
-            return key_code::Right;
+            return key_code::right;
         default:
-            return key_code::Unknown;
+            return key_code::unknown;
         }
     }
 
@@ -173,13 +173,13 @@ namespace interface
         switch (button)
         {
         case SDL_BUTTON_LEFT:
-            return mouse_button::Left;
+            return mouse_button::left;
         case SDL_BUTTON_MIDDLE:
-            return mouse_button::Middle;
+            return mouse_button::middle;
         case SDL_BUTTON_RIGHT:
-            return mouse_button::Right;
+            return mouse_button::right;
         default:
-            return mouse_button::Unknown;
+            return mouse_button::unknown;
         }
     }
 

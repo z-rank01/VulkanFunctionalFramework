@@ -23,30 +23,30 @@ namespace interface
 
         switch (event.type)
         {
-        case event_type::KeyDown:
-        case event_type::KeyUp:
+        case event_type::key_down:
+        case event_type::key_up:
         {
-            bool is_down = (event.type == event_type::KeyDown);
+            bool is_down = (event.type == event_type::key_down);
             switch (event.key.key)
             {
-            case key_code::W:
+            case key_code::w:
                 ctx.move_forward = is_down;
                 break;
-            case key_code::S:
+            case key_code::s:
                 ctx.move_backward = is_down;
                 break;
-            case key_code::A:
+            case key_code::a:
                 ctx.move_left = is_down;
                 break;
-            case key_code::D:
+            case key_code::d:
                 ctx.move_right = is_down;
                 break;
-            case key_code::E:
-            case key_code::Space:
+            case key_code::e:
+            case key_code::space:
                 ctx.move_up = is_down;
                 break;
-            case key_code::Q:
-            case key_code::LCtrl:
+            case key_code::q:
+            case key_code::lctrl:
                 ctx.move_down = is_down;
                 break;
             default:
@@ -54,29 +54,29 @@ namespace interface
             }
             break;
         }
-        case event_type::MouseButtonDown:
-        case event_type::MouseButtonUp:
+        case event_type::mouse_button_down:
+        case event_type::mouse_button_up:
         {
-            bool is_down = (event.type == event_type::MouseButtonDown);
-            if (event.mouse_button.button == mouse_button::Right)
+            bool is_down = (event.type == event_type::mouse_button_down);
+            if (event.mouse_button.button == mouse_button::right)
                 ctx.is_free_look_active = is_down;
-            if (event.mouse_button.button == mouse_button::Middle)
+            if (event.mouse_button.button == mouse_button::middle)
                 ctx.is_panning_active = is_down;
             break;
         }
-        case event_type::MouseMove:
+        case event_type::mouse_move:
         {
             // 累积鼠标移动量
             ctx.mouse_delta_x += event.mouse_move.xrel;
             ctx.mouse_delta_y += event.mouse_move.yrel; // 注意 SDL y轴方向
             break;
         }
-        case event_type::MouseWheel:
+        case event_type::mouse_wheel:
         {
             ctx.scroll_delta_y += event.mouse_wheel.y;
             break;
         }
-        case event_type::Resize:
+        case event_type::resize:
         {
             // Resize 通常需要更新 Config 的 aspect ratio，这里暂时略过，
             // 实际项目中可以传 CameraTable 进来更新所有相机的 aspect_ratio
