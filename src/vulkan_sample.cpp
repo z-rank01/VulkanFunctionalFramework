@@ -1010,24 +1010,24 @@ void vulkan_sample::create_drawcall_list_buffer()
     local_host_batch_handle = vra_data_batcher->Batch();
 
     // 创建本地缓冲区
-    auto test_local_buffer_create_info = local_host_batch_handle[vra::VraBuiltInBatchIds::GPU_Only].data_desc.GetBufferCreateInfo();
+    auto local_buffer_create_info = local_host_batch_handle[vra::VraBuiltInBatchIds::GPU_Only].data_desc.GetBufferCreateInfo();
     VmaAllocationCreateInfo allocation_create_info{};
     allocation_create_info.usage = VMA_MEMORY_USAGE_AUTO;
     vmaCreateBuffer(vma_allocator,
-                    &test_local_buffer_create_info,
+                    &local_buffer_create_info,
                     &allocation_create_info,
                     reinterpret_cast<VkBuffer*>(&local_buffer),
                     &local_buffer_allocation,
                     &local_buffer_allocation_info);
 
     // 创建暂存缓冲区
-    auto test_host_buffer_create_info = local_host_batch_handle[vra::VraBuiltInBatchIds::CPU_GPU_Rarely].data_desc.GetBufferCreateInfo();
+    auto host_buffer_create_info = local_host_batch_handle[vra::VraBuiltInBatchIds::CPU_GPU_Rarely].data_desc.GetBufferCreateInfo();
     VmaAllocationCreateInfo staging_allocation_create_info{};
     staging_allocation_create_info.usage = VMA_MEMORY_USAGE_AUTO;
     staging_allocation_create_info.flags =
         vra_data_batcher->GetSuggestVmaMemoryFlags(vra::VraDataMemoryPattern::CPU_GPU, vra::VraDataUpdateRate::RarelyOrNever);
     vmaCreateBuffer(vma_allocator,
-                    &test_host_buffer_create_info,
+                    &host_buffer_create_info,
                     &staging_allocation_create_info,
                     reinterpret_cast<VkBuffer*>(&staging_buffer),
                     &staging_buffer_allocation,
