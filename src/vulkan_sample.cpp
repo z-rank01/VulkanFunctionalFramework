@@ -33,8 +33,6 @@ void vulkan_sample::initialize()
 
     // initialize SDL, vulkan, and camera
     initialize_vulkan_hpp();
-    // initialize_window(); // Removed
-    // initialize_camera(); // Removed
     initialize_vulkan();
 }
 
@@ -419,7 +417,11 @@ bool vulkan_sample::create_uniform_buffers()
 
 bool vulkan_sample::create_and_write_descriptor_relatives()
 {
-    vk::DescriptorPoolSize pool_size(vk::DescriptorType::eUniformBufferDynamic, 1);
+    vk::DescriptorPoolSize pool_size = 
+    {
+        .type = vk::DescriptorType::eUniformBufferDynamic, 
+        .descriptorCount = 1
+    };
     vk::DescriptorPoolCreateInfo descriptor_pool_create_info;
     descriptor_pool_create_info.setPoolSizes(pool_size).setPoolSizeCount(1).setMaxSets(1);
 
@@ -613,27 +615,27 @@ bool vulkan_sample::create_pipeline()
     // create shader
     vk_shader_helper = std::make_unique<VulkanShaderHelper>(comm_vk_logical_device);
 
-    std::vector<SVulkanShaderConfig> configs;
+    std::vector<SVulkanShaderConfig> shader_configs;
     std::string shader_path = config.general_config.working_directory + "src\\shader\\";
     // std::string vertex_shader_path = shader_path + "triangle.vert.spv";
     // std::string fragment_shader_path = shader_path + "triangle.frag.spv";
     std::string vertex_shader_path   = shader_path + "gltf.vert.spv";
     std::string fragment_shader_path = shader_path + "gltf.frag.spv";
-    configs.push_back({.shader_type = EShaderType::kVertexShader, .shader_path = vertex_shader_path.c_str()});
-    configs.push_back({.shader_type = EShaderType::kFragmentShader, .shader_path = fragment_shader_path.c_str()});
+    shader_configs.push_back({.shader_type = EShaderType::kVertexShader, .shader_path = vertex_shader_path.c_str()});
+    shader_configs.push_back({.shader_type = EShaderType::kFragmentShader, .shader_path = fragment_shader_path.c_str()});
 
-    for (const auto& config : configs)
+    for (const auto& shader_config : shader_configs)
     {
         std::vector<uint32_t> shader_code;
-        if (!vk_shader_helper->ReadShaderCode(config.shader_path, shader_code))
+        if (!vk_shader_helper->ReadShaderCode(shader_config.shader_path, shader_code))
         {
-            Logger::LogError("Failed to read shader code from " + std::string(config.shader_path));
+            Logger::LogError("Failed to read shader code from " + std::string(shader_config.shader_path));
             return false;
         }
 
-        if (!vk_shader_helper->CreateShaderModule(comm_vk_logical_device, shader_code, config.shader_type))
+        if (!vk_shader_helper->CreateShaderModule(comm_vk_logical_device, shader_code, shader_config.shader_type))
         {
-            Logger::LogError("Failed to create shader module for " + std::string(config.shader_path));
+            Logger::LogError("Failed to create shader module for " + std::string(shader_config.shader_path));
             return false;
         }
     }
@@ -659,10 +661,6 @@ bool vulkan_sample::create_pipeline()
         .vertex_input_binding_description    = vertex_input_binding_description,
         .vertex_input_attribute_descriptions = vertex_input_attributes,
         .descriptor_set_layouts              = {descriptor_set_layout}};
-    // pipeline_config.vertex_input_binding_description =
-    // vertex_input_binding_description_;
-    // pipeline_config.vertex_input_attribute_descriptions =
-    // {vertex_input_attribute_position_, vertex_input_attribute_color_};
     vk_pipeline_helper = std::make_unique<VulkanPipelineHelper>(pipeline_config);
     return vk_pipeline_helper->CreatePipeline(comm_vk_logical_device);
 }
@@ -939,9 +937,6 @@ bool vulkan_sample::record_command(uint32_t image_index, const std::string& comm
 
 void vulkan_sample::update_uniform_buffer(uint32_t current_frame_index)
 {
-    // mvp_matrices_[current_frame_index].model      = camera_->get_matrix(interface::transform_matrix_type::model);
-    // mvp_matrices_[current_frame_index].view       = camera_->get_matrix(interface::transform_matrix_type::view);
-    // mvp_matrices_[current_frame_index].projection = camera_->get_matrix(interface::transform_matrix_type::projection);
     mvp_matrices[current_frame_index].model        = glm::mat4(1.0F);
     mvp_matrices[current_frame_index].view         = interface::get_view_matrix(camera_container->transforms[camera_entity_index]);
     mvp_matrices[current_frame_index].projection   = interface::get_projection_matrix(camera_container->transforms[camera_entity_index], camera_container->configs[camera_entity_index]);
