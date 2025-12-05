@@ -68,7 +68,7 @@ public:
     void set_vertex_index_data(std::vector<gltf::PerDrawCallData> per_draw_call_data,
                                std::vector<uint32_t> indices,
                                std::vector<gltf::Vertex> vertices);
-    void get_mesh_list(const std::vector<gltf::PerMeshData>& mesh_list);
+    void set_mesh_list(const std::vector<gltf::PerMeshData>& mesh_list);
 
     void set_window(interface::window* sdl_window) { this->window = sdl_window; }
     void set_camera_container(interface::camera_container* container) { camera_container = container; }

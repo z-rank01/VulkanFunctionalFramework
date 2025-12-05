@@ -47,7 +47,7 @@ void vulkan_sample::set_vertex_index_data(std::vector<gltf::PerDrawCallData> per
     vertices                = std::move(all_vertices);
 }
 
-void vulkan_sample::get_mesh_list(const std::vector<gltf::PerMeshData>& all_mesh_list)
+void vulkan_sample::set_mesh_list(const std::vector<gltf::PerMeshData>& all_mesh_list)
 {
     this->mesh_list = all_mesh_list;
 }
@@ -917,10 +917,6 @@ bool vulkan_sample::record_command(uint32_t image_index, const std::string& comm
     // 遍历每个 mesh 进行绘制
     for (const auto& mesh : mesh_list)
     {
-        // 遍历该 mesh 的所有图元进行绘制
-        // if (std::strcmp(mesh.name.c_str(), "arch_stones_02") != 0) {
-        //     continue;
-        // }
         for (const auto& primitive : mesh.primitives)
         {
             // 绘制当前图元

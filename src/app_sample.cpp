@@ -57,5 +57,5 @@ void app_sample::set_vertex_index_data(std::vector<gltf::PerDrawCallData> per_dr
 
 void app_sample::set_mesh_list(const std::vector<gltf::PerMeshData>& mesh_list)
 {
-    vulkan_instance->get_mesh_list(mesh_list);
+    vulkan_instance->set_mesh_list(mesh_list);
 }
