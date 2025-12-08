@@ -33,6 +33,7 @@ add_subdirectory(src/_vra)
 add_subdirectory(src/_gltf)
 add_subdirectory(src/_templates)
 add_subdirectory(src/_interface)
+add_subdirectory(src/render_graph)
 
 # 设置源文件
 set(SOURCES
@@ -65,6 +66,7 @@ target_link_libraries(VulkanSample
     vulkan_old_class                # 添加旧的 Vulkan 类库
     callable                        # 添加可调用库
     template                        # 添加模板库
+    render_graph                    # 添加渲染图库
     interface                       # 添加平台库
 )
 
