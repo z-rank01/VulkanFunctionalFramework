@@ -1,6 +1,6 @@
 #pragma once
 
-#include <vulkan/vulkan.hpp>
+#include <vector>
 
 namespace render_graph
 {
@@ -13,16 +13,16 @@ namespace render_graph
     struct read_dependency
     {
         std::vector<resouce_handle> read_list;
-        std::vector<pass_handle>    offsets;
-        std::vector<uint32_t>       lengthes;
+        std::vector<pass_handle>    begins;
+        std::vector<pass_handle>    lengthes;
     };
 
     // one dimesion array to represent the write resource of each pass
     struct write_dependency
     {
         std::vector<resouce_handle> write_list;
-        std::vector<pass_handle>    offsets;
-        std::vector<uint32_t>       lengthes;
+        std::vector<pass_handle>    begins;
+        std::vector<pass_handle>    lengthes;
     };
 
     struct graph_topology

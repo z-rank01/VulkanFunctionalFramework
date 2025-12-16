@@ -2,8 +2,13 @@
 find_package(Vulkan REQUIRED)
 
 add_library(render_graph STATIC
-    pass.h
-    pass.cpp
+    graph.h
+    graph.cpp
+    resource.h
+    resource_types.h
+    backend.h
+    vulkan_backend.h
+    system.h
 )
 
 # 设置头文件包含目录
