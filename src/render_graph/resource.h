@@ -14,21 +14,23 @@ namespace render_graph
     struct image_info
     {
         std::string name;
-        format fmt = format::UNDEFINED;
-        extent_3d extent = {.width=1, .height=1, .depth=1};
-        image_usage usage = image_usage::NONE;
-        image_type type = image_type::TYPE_2D;
-        image_flags flags = image_flags::NONE;
-        uint32_t mip_levels = 1;
-        uint32_t array_layers = 1;
+        format fmt             = format::UNDEFINED;
+        extent_3d extent       = {.width = 1, .height = 1, .depth = 1};
+        image_usage usage      = image_usage::NONE;
+        image_type type        = image_type::TYPE_2D;
+        image_flags flags      = image_flags::NONE;
+        uint32_t mip_levels    = 1;
+        uint32_t array_layers  = 1;
         uint32_t sample_counts = 1;
+        bool imported;
     };
 
     struct buffer_info
     {
         std::string name;
-        uint64_t size = 0;
+        uint64_t size      = 0;
         buffer_usage usage = buffer_usage::NONE;
+        bool imported;
     };
 
     // Meta Table for Images (SoA)
@@ -65,8 +67,8 @@ namespace render_graph
             sample_counts.push_back(info.sample_counts);
 
             // Defaults
-            is_imported.push_back(false);
-            is_transient.push_back(false);
+            is_imported.push_back(info.imported);
+            is_transient.push_back(!info.imported);
 
             return handle;
         }
@@ -94,15 +96,12 @@ namespace render_graph
         std::vector<uint64_t> sizes;
         std::vector<buffer_usage> usages;
 
-        std::vector<bool> is_imported;
-
         resource_handle add(const buffer_info& info)
         {
             auto handle = static_cast<resource_handle>(names.size());
             names.push_back(info.name);
             sizes.push_back(info.size);
             usages.push_back(info.usage);
-            is_imported.push_back(false);
             return handle;
         }
 
@@ -111,7 +110,6 @@ namespace render_graph
             names.clear();
             sizes.clear();
             usages.clear();
-            is_imported.clear();
         }
     };
 

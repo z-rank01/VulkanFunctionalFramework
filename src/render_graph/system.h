@@ -14,11 +14,11 @@ namespace render_graph
     // Context passed to the setup lambda
     struct pass_setup_context
     {
-        std::shared_ptr<resource_meta_table> meta_table;
-        std::shared_ptr<read_dependency> image_read_deps;
-        std::shared_ptr<write_dependency> image_write_deps;
-        std::shared_ptr<read_dependency> buffer_read_deps;
-        std::shared_ptr<write_dependency> buffer_write_deps;
+        resource_meta_table* meta_table;
+        read_dependency* image_read_deps;
+        write_dependency* image_write_deps;
+        read_dependency* buffer_read_deps;
+        write_dependency* buffer_write_deps;
         pass_handle current_pass;
 
         // create
@@ -68,15 +68,15 @@ namespace render_graph
     public:
         // resource related
         resource_meta_table meta_table;
-        read_dependency     image_read_deps;
-        write_dependency    image_write_deps;
-        read_dependency     buffer_read_deps;
-        write_dependency    buffer_write_deps;
+        read_dependency image_read_deps;
+        write_dependency image_write_deps;
+        read_dependency buffer_read_deps;
+        write_dependency buffer_write_deps;
 
         // pass related
-        graph_topology                  topology;
-        std::vector<pass_setup_func>    setup_funcs;
-        std::vector<pass_execute_func>  execute_funcs;
+        graph_topology graph;
+        std::vector<pass_setup_func> setup_funcs;
+        std::vector<pass_execute_func> execute_funcs;
 
         // backend
         backend* backend = nullptr;
@@ -88,22 +88,60 @@ namespace render_graph
         template <typename SetupFn = pass_setup_func, typename ExecuteFn = pass_execute_func>
         pass_handle add_pass(SetupFn&& setup, ExecuteFn&& execute)
         {
-            auto handle = static_cast<pass_handle>(topology.passes.size());
-            topology.passes.push_back(handle);
+            auto handle = static_cast<pass_handle>(graph.passes.size());
+            graph.passes.push_back(handle);
             setup_funcs.push_back(std::forward<SetupFn>(setup));
             execute_funcs.push_back(std::forward<ExecuteFn>(execute));
             return handle;
         }
 
         // 2. Compile System (Culling & Allocation)
-        void compile() const
+        void compile()
         {
-            // Step A: Culling
+            const auto pass_count = graph.passes.size();
+
+            // Reset dependency storage (StepA will repopulate these)
+
+            // Step A: Invoke Setup Functions
+            // Invoke setup function to collect reousce usages so that we
+            // can compute the topology of pass and execute succeeding phases.
+            image_read_deps.read_list.clear();
+            image_read_deps.begins.assign(pass_count, 0);
+            image_read_deps.lengthes.assign(pass_count, 0);
+            image_write_deps.write_list.clear();
+            image_write_deps.begins.assign(pass_count, 0);
+            image_write_deps.lengthes.assign(pass_count, 0);
+            buffer_read_deps.read_list.clear();
+            buffer_read_deps.begins.assign(pass_count, 0);
+            buffer_read_deps.lengthes.assign(pass_count, 0);
+            buffer_write_deps.write_list.clear();
+            buffer_write_deps.begins.assign(pass_count, 0);
+            buffer_write_deps.lengthes.assign(pass_count, 0);
+            pass_setup_context setup_ctx{.meta_table        = &meta_table,
+                                         .image_read_deps   = &image_read_deps,
+                                         .image_write_deps  = &image_write_deps,
+                                         .buffer_read_deps  = &buffer_read_deps,
+                                         .buffer_write_deps = &buffer_write_deps,
+                                         .current_pass      = 0};
+            for (size_t i = 0; i < pass_count; i++)
+            {
+                setup_ctx.current_pass = graph.passes[i];
+
+                // Mark begin offsets for this pass (SoA range encoding)
+                image_read_deps.begins[setup_ctx.current_pass]   = static_cast<pass_handle>(image_read_deps.read_list.size());
+                image_write_deps.begins[setup_ctx.current_pass]  = static_cast<pass_handle>(image_write_deps.write_list.size());
+                buffer_read_deps.begins[setup_ctx.current_pass]  = static_cast<pass_handle>(buffer_read_deps.read_list.size());
+                buffer_write_deps.begins[setup_ctx.current_pass] = static_cast<pass_handle>(buffer_write_deps.write_list.size());
+
+                auto setup_func = setup_funcs[i];
+                setup_func(setup_ctx);
+            }
+
+            // Step B: Culling
             // Analyze dependencies and mark passes as active/inactive
             // For now, we assume all passes are active.
-            // cull_passes();
 
-            // Step B: Resource Allocation
+            // Step C: Resource Allocation
             // 1. Filter out resources that are not used by active passes (if needed)
             // 2. Call backend to create physical resources
         }

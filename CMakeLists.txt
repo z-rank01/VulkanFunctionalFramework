@@ -40,6 +40,8 @@ set(SOURCES
     src/main.cpp
     src/vulkan_sample.cpp
     src/app_sample.cpp
+    
+    src/render_graph/unit_test/deferred_rendering_compile_test.cpp
 )
 
 # 设置头文件

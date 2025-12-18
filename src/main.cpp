@@ -6,86 +6,90 @@
 #include "_gltf/gltf_loader.h"
 #include "_gltf/gltf_parser.h"
 #include "app_sample.h"
+#include "render_graph/unit_test/deferred_rendering_compile_test.h"
 #include "utility/config_reader.h"
 #include "utility/logger.h"
 
 int main()
 {
-    std::cout << "Hello, World!" << '\n';
-    std::cout << "This is a Vulkan Sample" << '\n';
+    render_graph::unit_test::deferred_rendering_compile_test();
 
-    // general config
-    config_reader config_reader(R"(E:\Learning\VulkanFunctionalFramework\config\win64\app_config.json)");
-    general_config general_config;
-    if (!config_reader.try_parse_general_config(general_config))
-    {
-        Logger::LogError("Failed to parse general config");
-        return -1;
-    }
+    // std::cout << "Hello, World!" << '\n';
+    // std::cout << "This is a Vulkan Sample" << '\n';
 
-    // read gltf file
+    // // general config
 
-    auto loader = gltf::GltfLoader();
-    auto asset  = loader(general_config.asset_directory);
+    // config_reader config_reader(R"(D:\Repository\VulkanFunctionalFramework\config\win64\app_config.json)");
+    // general_config general_config;
+    // if (!config_reader.try_parse_general_config(general_config))
+    // {
+    //     Logger::LogError("Failed to parse general config");
+    //     return -1;
+    // }
 
-    // parse gltf file
+    // // read gltf file
 
-    gltf::GltfParser parser;
-    auto mesh_list           = parser(asset, gltf::RequestMeshList{});
-    auto draw_call_data_list = parser(asset, gltf::RequestDrawCallList{});
-    // Transform vertex positions using the draw call's transform matrix (functional expression)
-    std::ranges::for_each(draw_call_data_list,
-                          [](gltf::PerDrawCallData& primitive)
-                          {
-                              const glm::mat4& transform = primitive.transform;
-                              std::ranges::for_each(primitive.vertices,
-                                                    [&](gltf::Vertex& vertex)
-                                                    {
-                                                        glm::vec4 transformed_position = transform * glm::vec4(vertex.position, 1.0F);
-                                                        vertex.position                = glm::vec3(transformed_position);
-                                                    });
-                          });
+    // auto loader = gltf::GltfLoader();
+    // auto asset  = loader(general_config.asset_directory);
 
-    // collect all indices
+    // // parse gltf file
 
-    std::vector<uint32_t> indices;
-    std::vector<gltf::Vertex> vertices;
+    // gltf::GltfParser parser;
+    // auto mesh_list           = parser(asset, gltf::RequestMeshList{});
+    // auto draw_call_data_list = parser(asset, gltf::RequestDrawCallList{});
+    // // Transform vertex positions using the draw call's transform matrix (functional expression)
+    // std::ranges::for_each(draw_call_data_list,
+    //                       [](gltf::PerDrawCallData& primitive)
+    //                       {
+    //                           const glm::mat4& transform = primitive.transform;
+    //                           std::ranges::for_each(primitive.vertices,
+    //                                                 [&](gltf::Vertex& vertex)
+    //                                                 {
+    //                                                     glm::vec4 transformed_position = transform * glm::vec4(vertex.position, 1.0F);
+    //                                                     vertex.position                = glm::vec3(transformed_position);
+    //                                                 });
+    //                       });
 
-    // reserve memory
+    // // collect all indices
 
-    auto index_capacity  = std::accumulate(draw_call_data_list.begin(),
-                                          draw_call_data_list.end(),
-                                          0,
-                                          [&](const auto& sum, const auto& draw_call_data) { return sum + draw_call_data.indices.size(); });
-    auto vertex_capacity = std::accumulate(draw_call_data_list.begin(),
-                                           draw_call_data_list.end(),
-                                           0,
-                                           [&](const auto& sum, const auto& draw_call_data) { return sum + draw_call_data.vertices.size(); });
-    indices.reserve(index_capacity);
-    vertices.reserve(vertex_capacity);
+    // std::vector<uint32_t> indices;
+    // std::vector<gltf::Vertex> vertices;
 
-    // collect all indices and vertices
+    // // reserve memory
 
-    for (const auto& draw_call_data : draw_call_data_list)
-    {
-        indices.insert(indices.end(), draw_call_data.indices.begin(), draw_call_data.indices.end());
-        vertices.insert(vertices.end(), draw_call_data.vertices.begin(), draw_call_data.vertices.end());
-    }
+    // auto index_capacity  = std::accumulate(draw_call_data_list.begin(),
+    //                                       draw_call_data_list.end(),
+    //                                       0,
+    //                                       [&](const auto& sum, const auto& draw_call_data) { return sum + draw_call_data.indices.size(); });
+    // auto vertex_capacity = std::accumulate(draw_call_data_list.begin(),
+    //                                        draw_call_data_list.end(),
+    //                                        0,
+    //                                        [&](const auto& sum, const auto& draw_call_data) { return sum + draw_call_data.vertices.size(); });
+    // indices.reserve(index_capacity);
+    // vertices.reserve(vertex_capacity);
 
-    // configs
+    // // collect all indices and vertices
 
-    window_config window_config = {.width = 1280, .height = 720, .title = "Vulkan Engine"};
-    engine_config config        = {.window_config = window_config, .general_config = general_config, .frame_count = 3, .use_validation_layers = true};
+    // for (const auto& draw_call_data : draw_call_data_list)
+    // {
+    //     indices.insert(indices.end(), draw_call_data.indices.begin(), draw_call_data.indices.end());
+    //     vertices.insert(vertices.end(), draw_call_data.vertices.begin(), draw_call_data.vertices.end());
+    // }
 
-    // main loop
+    // // configs
 
-    app_sample sample(config);
-    sample.set_vertex_index_data(draw_call_data_list, indices, vertices);
-    sample.set_mesh_list(mesh_list);
-    sample.initialize();
-    sample.tick();
+    // window_config window_config = {.width = 1280, .height = 720, .title = "Vulkan Engine"};
+    // engine_config config        = {.window_config = window_config, .general_config = general_config, .frame_count = 3, .use_validation_layers = true};
 
-    std::cout << "Goodbye" << '\n';
+    // // main loop
+
+    // app_sample sample(config);
+    // sample.set_vertex_index_data(draw_call_data_list, indices, vertices);
+    // sample.set_mesh_list(mesh_list);
+    // sample.initialize();
+    // sample.tick();
+
+    // std::cout << "Goodbye" << '\n';
 
     return 0;
 }
