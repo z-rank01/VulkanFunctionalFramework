@@ -137,11 +137,15 @@ namespace render_graph
                 setup_func(setup_ctx);
             }
 
-            // Step B: Culling
+            // Step B: Build resource-producer map
+            // Map each resource to the pass that writes to it.
+            // Accelerate lookups during culling and execution.
+
+            // Step C: Culling
             // Analyze dependencies and mark passes as active/inactive
             // For now, we assume all passes are active.
 
-            // Step C: Resource Allocation
+            // Step D: Resource Allocation
             // 1. Filter out resources that are not used by active passes (if needed)
             // 2. Call backend to create physical resources
         }
