@@ -1,5 +1,5 @@
-# Vulkan Functional Framework
-面向不同图形 API、以函数式编程（Functional Programming）风格构建的个人定制 Vulkan 框架
+# CG Lab
+面向不同图形 API、以函数式编程（Functional Programming）和数据驱动（Data Oriented）风格构建的实验框架。主要用于个人的 Computer Graphics 相关实验和学习。
 
 # Usage（使用）
 ## 配置 CMakePresets.json
@@ -21,8 +21,8 @@
 
 ---
 
-# Vulkan Functional Framework
-Personal customized vulkan framework targeting on different gfx APIs in a style of **Functional Progamming**
+# CG Lab
+This a framework aims at helping to experiment and study computer graphics for personal usage, based on different gfx APIs in a style of **Functional Progamming** and **Data-Oriented**.
 
 # Usage
 ## Config CMakePresets.json
