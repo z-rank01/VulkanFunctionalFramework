@@ -81,6 +81,10 @@ namespace render_graph
         // backend
         backend* backend = nullptr;
 
+        // resource-producer map
+        std::vector<pass_handle> img_proc_map;
+        std::vector<pass_handle> buf_proc_map;
+
         void set_backend(class backend* backend_ptr) { backend = backend_ptr; }
 
         // 1. Add Pass System
@@ -100,11 +104,11 @@ namespace render_graph
         {
             const auto pass_count = graph.passes.size();
 
-            // Reset dependency storage (StepA will repopulate these)
-
             // Step A: Invoke Setup Functions
             // Invoke setup function to collect reousce usages so that we
             // can compute the topology of pass and execute succeeding phases.
+            
+            // Reset dependency storage
             image_read_deps.read_list.clear();
             image_read_deps.begins.assign(pass_count, 0);
             image_read_deps.lengthes.assign(pass_count, 0);
@@ -140,6 +144,35 @@ namespace render_graph
             // Step B: Build resource-producer map
             // Map each resource to the pass that writes to it.
             // Accelerate lookups during culling and execution.
+            
+            // TODO: create and take account of resource version
+            auto image_resource_count = meta_table.image_metas.names.size();
+            auto buffer_resource_count = meta_table.buffer_metas.names.size();
+            img_proc_map.assign(image_resource_count, std::_Max_limit<resource_handle>());
+            buf_proc_map.assign(buffer_resource_count, std::_Max_limit<resource_handle>());
+            for(size_t i = 0; i < pass_count; i++)
+            {
+                auto current_pass = graph.passes[i];
+                auto begin = image_write_deps.begins[current_pass];
+                auto length = image_write_deps.lengthes[current_pass];
+                for(resource_handle j = begin; j < begin + length; j++)
+                {
+                    auto resource = image_write_deps.write_list[j];
+                    img_proc_map[resource] = current_pass;
+                }
+            }
+            for(size_t i = 0; i < pass_count; i++)
+            {
+                auto current_pass = graph.passes[i];
+                auto begin = buffer_write_deps.begins[current_pass];
+                auto length = buffer_write_deps.lengthes[current_pass];
+                for(resource_handle j = begin; j < begin + length; j++)
+                {
+                    auto resource = buffer_write_deps.write_list[j];
+                    buf_proc_map[resource] = current_pass;
+                }
+            }
+
 
             // Step C: Culling
             // Analyze dependencies and mark passes as active/inactive
