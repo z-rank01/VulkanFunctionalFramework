@@ -1,9 +1,6 @@
 #pragma once
 
-#include <algorithm>
-#include <functional>
 #include <limits>
-#include <memory>
 #include <vector>
 
 #include "backend.h"
@@ -12,58 +9,6 @@
 
 namespace render_graph
 {
-    // Context passed to the setup lambda
-    struct pass_setup_context
-    {
-        resource_meta_table* meta_table;
-        read_dependency* image_read_deps;
-        write_dependency* image_write_deps;
-        read_dependency* buffer_read_deps;
-        write_dependency* buffer_write_deps;
-        pass_handle current_pass;
-
-        // create
-
-        resource_handle create_image(const image_info& info) const { return meta_table->image_metas.add(info); }
-        resource_handle create_buffer(const buffer_info& info) const { return meta_table->buffer_metas.add(info); }
-
-        // read
-
-        void read_image(resource_handle resource) const
-        {
-            image_read_deps->read_list.push_back(resource);
-            image_read_deps->lengthes[current_pass]++;
-        }
-        void read_buffer(resource_handle resource) const
-        {
-            buffer_read_deps->read_list.push_back(resource);
-            buffer_read_deps->lengthes[current_pass]++;
-        }
-
-        // write
-
-        void write_image(resource_handle resource) const
-        {
-            image_write_deps->write_list.push_back(resource);
-            image_write_deps->lengthes[current_pass]++;
-        }
-        void write_buffer(resource_handle resource) const
-        {
-            buffer_write_deps->write_list.push_back(resource);
-            buffer_write_deps->lengthes[current_pass]++;
-        }
-    };
-
-    // Context passed to the execution lambda
-    struct pass_execute_context
-    {
-        const backend* backend;
-        // void* command_buffer; // Abstract command buffer
-    };
-
-    using pass_execute_func = void (*)(pass_execute_context&);
-    using pass_setup_func   = void (*)(pass_setup_context&);
-
     class render_graph_system
     {
     public:
@@ -73,18 +18,13 @@ namespace render_graph
         write_dependency image_write_deps;
         read_dependency buffer_read_deps;
         write_dependency buffer_write_deps;
+        resource_producer_lookup_table producer_lookup_table;
 
         // pass related
         graph_topology graph;
-        std::vector<pass_setup_func> setup_funcs;
-        std::vector<pass_execute_func> execute_funcs;
-
-        // backend
+        
+        // backend related
         backend* backend = nullptr;
-
-        // resource-producer map
-        std::vector<pass_handle> img_proc_map;
-        std::vector<pass_handle> buf_proc_map;
 
         void set_backend(class backend* backend_ptr) { backend = backend_ptr; }
 
@@ -95,8 +35,8 @@ namespace render_graph
         {
             auto handle = static_cast<pass_handle>(graph.passes.size());
             graph.passes.push_back(handle);
-            setup_funcs.push_back(std::forward<SetupFn>(setup));
-            execute_funcs.push_back(std::forward<ExecuteFn>(execute));
+            graph.setup_funcs.push_back(std::forward<SetupFn>(setup));
+            graph.execute_funcs.push_back(std::forward<ExecuteFn>(execute));
             return handle;
         }
 
@@ -138,7 +78,7 @@ namespace render_graph
                 buffer_read_deps.begins[setup_ctx.current_pass]  = static_cast<pass_handle>(buffer_read_deps.read_list.size());
                 buffer_write_deps.begins[setup_ctx.current_pass] = static_cast<pass_handle>(buffer_write_deps.write_list.size());
 
-                auto setup_func = setup_funcs[i];
+                auto setup_func = graph.setup_funcs[i];
                 setup_func(setup_ctx);
             }
 
@@ -149,8 +89,8 @@ namespace render_graph
             // TODO: create and take account of resource version
             auto image_resource_count = meta_table.image_metas.names.size();
             auto buffer_resource_count = meta_table.buffer_metas.names.size();
-            img_proc_map.assign(image_resource_count, std::numeric_limits<pass_handle>::max());
-            buf_proc_map.assign(buffer_resource_count, std::numeric_limits<pass_handle>::max());
+            producer_lookup_table.img_proc_map.assign(image_resource_count, std::numeric_limits<pass_handle>::max());
+            producer_lookup_table.buf_proc_map.assign(buffer_resource_count, std::numeric_limits<pass_handle>::max());
             for(size_t i = 0; i < pass_count; i++)
             {
                 auto current_pass = graph.passes[i];
@@ -159,7 +99,7 @@ namespace render_graph
                 for(auto j = begin; j < begin + length; j++)
                 {
                     auto image = image_write_deps.write_list[j];
-                    img_proc_map[image] = current_pass;
+                    producer_lookup_table.img_proc_map[image] = current_pass;
                 }
             }
             for(size_t i = 0; i < pass_count; i++)
@@ -170,18 +110,18 @@ namespace render_graph
                 for(auto j = begin; j < begin + length; j++)
                 {
                     auto buffer = buffer_write_deps.write_list[j];
-                    buf_proc_map[buffer] = current_pass;
+                    producer_lookup_table.buf_proc_map[buffer] = current_pass;
                 }
             }
 
-
             // Step C: Culling
             // Analyze dependencies and mark passes as active/inactive
-            // For now, we assume all passes are active.
 
             // Step D: Resource Allocation
             // 1. Filter out resources that are not used by active passes (if needed)
             // 2. Call backend to create physical resources
+
+            // Step E: 
         }
 
         // 3. Execution System

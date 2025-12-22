@@ -9,6 +9,7 @@
 namespace render_graph
 {
     using resource_handle = uint32_t;
+    using pass_handle = uint32_t;
 
     // Helper struct for user convenience
     struct image_info
@@ -124,6 +125,12 @@ namespace render_graph
             image_metas.clear();
             buffer_metas.clear();
         }
+    };
+
+    struct resource_producer_lookup_table
+    {
+        std::vector<pass_handle> img_proc_map; // Indexed by image handle
+        std::vector<pass_handle> buf_proc_map; // Indexed by buffer handle
     };
 
 } // namespace render_graph
