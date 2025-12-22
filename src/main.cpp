@@ -10,12 +10,14 @@
 #include "utility/logger.h"
 #include "render_graph/unit_test/deferred_rendering_compile_test.h"     // unit test
 #include "render_graph/unit_test/resource_producer_map_compile_test.h"  // unit test
+#include "render_graph/unit_test/resource_generation_compile_test.h"   // unit test
 
 int main()
 {
     // render_graph::unit_test::deferred_rendering_compile_test();
-    render_graph::unit_test::resource_producer_map_compile_test();
-
+    // render_graph::unit_test::resource_producer_map_compile_test();
+    render_graph::unit_test::resource_generation_compile_test();
+    
     // std::cout << "Hello, World!" << '\n';
     // std::cout << "This is a Vulkan Sample" << '\n';
 

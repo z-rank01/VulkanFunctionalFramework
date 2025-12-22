@@ -10,7 +10,6 @@ namespace render_graph
     using pass_handle       = uint32_t;
     using resource_handle   = uint32_t;
     
-
     // resource dependency
 
     // one dimesion array to represent the read resource of each pass
@@ -19,6 +18,7 @@ namespace render_graph
         std::vector<resource_handle> read_list;
         std::vector<resource_handle> begins;
         std::vector<resource_handle> lengthes;
+        std::vector<resource_handle> generations;
     };
 
     // one dimesion array to represent the write resource of each pass
@@ -27,11 +27,12 @@ namespace render_graph
         std::vector<resource_handle> write_list;
         std::vector<resource_handle> begins;
         std::vector<resource_handle> lengthes;
+        std::vector<resource_handle> generations;
     };
 
     // graph/pass context
 
-    // Context passed to the setup lambda
+    // context passed to the setup lambda
     struct pass_setup_context
     {
         resource_meta_table* meta_table;
@@ -47,6 +48,8 @@ namespace render_graph
         resource_handle create_buffer(const buffer_info& info) const { return meta_table->buffer_metas.add(info); }
 
         // read
+        // at the stage of adding dependency of resource, no need to compute and designate generation of resource
+        // generation will be computed through system inside compile function.
 
         void read_image(resource_handle resource) const
         {
@@ -60,6 +63,8 @@ namespace render_graph
         }
 
         // write
+        // at the stage of adding dependency of resource, no need to compute and designate generation of resource
+        // generation will be computed through system inside compile function.
 
         void write_image(resource_handle resource) const
         {
@@ -73,7 +78,7 @@ namespace render_graph
         }
     };
 
-    // Context passed to the execution lambda
+    // context passed to the execution lambda
     struct pass_execute_context
     {
         const backend* backend;
