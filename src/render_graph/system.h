@@ -30,6 +30,7 @@ namespace render_graph
 
         // 1. Add Pass System
         // Separates resource definition (setup) from execution logic.
+
         template <typename SetupFn = pass_setup_func, typename ExecuteFn = pass_execute_func>
         pass_handle add_pass(SetupFn&& setup, ExecuteFn&& execute)
         {
@@ -40,7 +41,8 @@ namespace render_graph
             return handle;
         }
 
-        // 2. Compile System (Culling & Allocation)
+        // 2. Compile System
+
         void compile()
         {
             const auto pass_count = graph.passes.size();
@@ -64,8 +66,10 @@ namespace render_graph
             buffer_write_deps.generations.clear();
 
             // Step A: Invoke Setup Functions
-            // Invoke setup function to collect reousce usages so that we
+            // Invoke setup function to collect resource usages so that we
             // can compute the topology of pass and execute succeeding phases.
+            // - Read: graph.passes, graph.setup_funcs
+            // - Write: meta_table, image_read_deps, image_write_deps, buffer_read_deps, buffer_write_deps
 
             pass_setup_context setup_ctx{.meta_table        = &meta_table,
                                          .image_read_deps   = &image_read_deps,
@@ -90,9 +94,11 @@ namespace render_graph
             // Step B: Build resource-producer map
             // Map each resource to the pass that writes to it.
             // Accelerate lookups during culling and dag construction.
+            // - Read: graph.passes, image_write_deps, buffer_write_deps
+            // - Write: producer_lookup_table
 
-            const auto image_count        = meta_table.image_metas.names.size();
-            const auto buffer_count       = meta_table.buffer_metas.names.size();
+            const auto image_count  = meta_table.image_metas.names.size();
+            const auto buffer_count = meta_table.buffer_metas.names.size();
             producer_lookup_table.img_proc_map.assign(image_count, std::numeric_limits<pass_handle>::max());
             producer_lookup_table.buf_proc_map.assign(buffer_count, std::numeric_limits<pass_handle>::max());
             for (size_t i = 0; i < pass_count; i++)
@@ -118,11 +124,12 @@ namespace render_graph
                 }
             }
 
-
             // Step C: Compute Resource Generation
-            // compute generation list inside image and buffer dependency structure, 
+            // compute generation list inside image and buffer dependency structure,
             // prepare for graph culling and dag construction.
-            
+            // - Read: graph.passes, image_read_deps, image_write_deps, buffer_read_deps, buffer_write_deps
+            // - Write: image_read_deps.generations, image_write_deps.generations, buffer_read_deps.generations, buffer_write_deps.generations
+
             // Prepare generation arrays.
             const auto image_read_count   = image_read_deps.read_list.size();
             const auto image_write_count  = image_write_deps.write_list.size();
@@ -132,7 +139,7 @@ namespace render_graph
             image_write_deps.generations.assign(image_write_count, 0);
             buffer_read_deps.generations.assign(buffer_read_count, 0);
             buffer_write_deps.generations.assign(buffer_write_count, 0);
-            
+
             // We store the "next generation" to be assigned on a write.
             // - On write: gen = next_gen; next_gen++
             // - On read: gen = (next_gen == 0) ? 0 : (next_gen - 1)
@@ -185,7 +192,7 @@ namespace render_graph
                 }
             }
 
-            // Step D:
+            // Step D: Culling
             // Analyze dependencies and mark passes as active/inactive
 
             // Step E: Resource Allocation
