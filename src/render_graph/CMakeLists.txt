@@ -22,3 +22,5 @@ target_link_libraries(render_graph
     PUBLIC
         Vulkan::Vulkan
 )
+
+add_subdirectory(unit_test)

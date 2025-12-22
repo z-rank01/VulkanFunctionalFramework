@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <functional>
+#include <limits>
 #include <memory>
 #include <vector>
 
@@ -148,17 +149,17 @@ namespace render_graph
             // TODO: create and take account of resource version
             auto image_resource_count = meta_table.image_metas.names.size();
             auto buffer_resource_count = meta_table.buffer_metas.names.size();
-            img_proc_map.assign(image_resource_count, std::_Max_limit<resource_handle>());
-            buf_proc_map.assign(buffer_resource_count, std::_Max_limit<resource_handle>());
+            img_proc_map.assign(image_resource_count, std::numeric_limits<pass_handle>::max());
+            buf_proc_map.assign(buffer_resource_count, std::numeric_limits<pass_handle>::max());
             for(size_t i = 0; i < pass_count; i++)
             {
                 auto current_pass = graph.passes[i];
                 auto begin = image_write_deps.begins[current_pass];
                 auto length = image_write_deps.lengthes[current_pass];
-                for(resource_handle j = begin; j < begin + length; j++)
+                for(auto j = begin; j < begin + length; j++)
                 {
-                    auto resource = image_write_deps.write_list[j];
-                    img_proc_map[resource] = current_pass;
+                    auto image = image_write_deps.write_list[j];
+                    img_proc_map[image] = current_pass;
                 }
             }
             for(size_t i = 0; i < pass_count; i++)
@@ -166,10 +167,10 @@ namespace render_graph
                 auto current_pass = graph.passes[i];
                 auto begin = buffer_write_deps.begins[current_pass];
                 auto length = buffer_write_deps.lengthes[current_pass];
-                for(resource_handle j = begin; j < begin + length; j++)
+                for(auto j = begin; j < begin + length; j++)
                 {
-                    auto resource = buffer_write_deps.write_list[j];
-                    buf_proc_map[resource] = current_pass;
+                    auto buffer = buffer_write_deps.write_list[j];
+                    buf_proc_map[buffer] = current_pass;
                 }
             }
 
