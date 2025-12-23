@@ -1,6 +1,7 @@
 #pragma once
 
 #include <limits>
+#include <queue>
 #include <vector>
 
 #include "backend.h"
@@ -19,9 +20,11 @@ namespace render_graph
         read_dependency buffer_read_deps;
         write_dependency buffer_write_deps;
         resource_producer_lookup_table producer_lookup_table;
+        output_table output_table;
 
         // pass related
         graph_topology graph;
+        std::vector<bool> active_pass_flags;
 
         // backend related
         backend* backend = nullptr;
@@ -64,6 +67,8 @@ namespace render_graph
             buffer_write_deps.begins.assign(pass_count, 0);
             buffer_write_deps.lengthes.assign(pass_count, 0);
             buffer_write_deps.generations.clear();
+            output_table.image_outputs.clear();
+            output_table.buffer_outputs.clear();
 
             // Step A: Invoke Setup Functions
             // Invoke setup function to collect resource usages so that we
@@ -76,6 +81,7 @@ namespace render_graph
                                          .image_write_deps  = &image_write_deps,
                                          .buffer_read_deps  = &buffer_read_deps,
                                          .buffer_write_deps = &buffer_write_deps,
+                                         .output_table      = &output_table,
                                          .current_pass      = 0};
             for (size_t i = 0; i < pass_count; i++)
             {
@@ -194,6 +200,74 @@ namespace render_graph
 
             // Step D: Culling
             // Analyze dependencies and mark passes as active/inactive
+
+            active_pass_flags.assign(pass_count, false);
+            std::queue<pass_handle> worklist;
+            const auto invalid_pass = std::numeric_limits<pass_handle>::max();
+
+            auto enqueue_pass = [&](pass_handle pass)
+            {
+                if (pass == invalid_pass || pass >= pass_count)
+                {
+                    return;
+                }
+                if (!active_pass_flags[pass])
+                {
+                    active_pass_flags[pass] = true;
+                    worklist.push(pass);
+                }
+            };
+
+            // Seed roots from declared outputs (images/buffers)
+            for (const auto output_image : output_table.image_outputs)
+            {
+                if (output_image < producer_lookup_table.img_proc_map.size())
+                {
+                    enqueue_pass(producer_lookup_table.img_proc_map[output_image]);
+                }
+            }
+            for (const auto output_buffer : output_table.buffer_outputs)
+            {
+                if (output_buffer < producer_lookup_table.buf_proc_map.size())
+                {
+                    enqueue_pass(producer_lookup_table.buf_proc_map[output_buffer]);
+                }
+            }
+
+            // Reverse traversal: if a live pass reads a resource, its producer must be live.
+            while (!worklist.empty())
+            {
+                const auto current_pass = worklist.front();
+                worklist.pop();
+
+                // image read dependencies
+                {
+                    const auto read_begin  = image_read_deps.begins[current_pass];
+                    const auto read_length = image_read_deps.lengthes[current_pass];
+                    for (auto j = read_begin; j < read_begin + read_length; j++)
+                    {
+                        const auto image = image_read_deps.read_list[j];
+                        if (image < producer_lookup_table.img_proc_map.size())
+                        {
+                            enqueue_pass(producer_lookup_table.img_proc_map[image]);
+                        }
+                    }
+                }
+
+                // buffer read dependencies
+                {
+                    const auto read_begin  = buffer_read_deps.begins[current_pass];
+                    const auto read_length = buffer_read_deps.lengthes[current_pass];
+                    for (auto j = read_begin; j < read_begin + read_length; j++)
+                    {
+                        const auto buffer = buffer_read_deps.read_list[j];
+                        if (buffer < producer_lookup_table.buf_proc_map.size())
+                        {
+                            enqueue_pass(producer_lookup_table.buf_proc_map[buffer]);
+                        }
+                    }
+                }
+            }
 
             // Step E: Resource Allocation
             // 1. Filter out resources that are not used by active passes (if needed)

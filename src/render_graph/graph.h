@@ -1,15 +1,17 @@
 #pragma once
 
+#include <cassert>
 #include <vector>
 
-#include "resource.h"
 #include "backend.h"
+#include "resource.h"
+
 
 namespace render_graph
 {
-    using pass_handle       = uint32_t;
-    using resource_handle   = uint32_t;
-    
+    using pass_handle     = uint32_t;
+    using resource_handle = uint32_t;
+
     // resource dependency
 
     // one dimesion array to represent the read resource of each pass
@@ -40,12 +42,29 @@ namespace render_graph
         write_dependency* image_write_deps;
         read_dependency* buffer_read_deps;
         write_dependency* buffer_write_deps;
+        output_table* output_table;
         pass_handle current_pass;
 
         // create
 
         resource_handle create_image(const image_info& info) const { return meta_table->image_metas.add(info); }
         resource_handle create_buffer(const buffer_info& info) const { return meta_table->buffer_metas.add(info); }
+
+        // output
+
+        void declare_image_output(resource_handle resource) const
+        {
+            // validate resource is an image
+            assert(resource < meta_table->image_metas.names.size());
+            output_table->image_outputs.push_back(resource);
+        }
+
+        void declare_buffer_output(resource_handle resource) const
+        {
+            // validate resource is a buffer
+            assert(resource < meta_table->buffer_metas.names.size());
+            output_table->buffer_outputs.push_back(resource);
+        }
 
         // read
         // at the stage of adding dependency of resource, no need to compute and designate generation of resource

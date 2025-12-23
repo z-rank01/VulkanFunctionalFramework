@@ -6,6 +6,7 @@ add_library(render_graph_unit_tests OBJECT
     deferred_rendering_compile_test.cpp
     resource_producer_map_compile_test.cpp
     resource_generation_compile_test.cpp
+    culling_compile_test.cpp
 )
 
 target_link_libraries(render_graph_unit_tests

@@ -9,7 +9,7 @@
 namespace render_graph
 {
     using resource_handle = uint32_t;
-    using pass_handle = uint32_t;
+    using pass_handle     = uint32_t;
 
     // Helper struct for user convenience
     struct image_info
@@ -97,12 +97,18 @@ namespace render_graph
         std::vector<uint64_t> sizes;
         std::vector<buffer_usage> usages;
 
+        // Lifecycle / Graph properties
+        std::vector<bool> is_imported;  // If true, handle is provided externally (backbuffer, etc.)
+        std::vector<bool> is_transient; // If true, memory can be aliased/lazy allocated
+
         resource_handle add(const buffer_info& info)
         {
             auto handle = static_cast<resource_handle>(names.size());
             names.push_back(info.name);
             sizes.push_back(info.size);
             usages.push_back(info.usage);
+            is_imported.push_back(info.imported);
+            is_transient.push_back(!info.imported);
             return handle;
         }
 
@@ -131,6 +137,12 @@ namespace render_graph
     {
         std::vector<pass_handle> img_proc_map; // Indexed by image handle
         std::vector<pass_handle> buf_proc_map; // Indexed by buffer handle
+    };
+
+    struct output_table
+    {
+        std::vector<resource_handle> image_outputs;  // Indexed by image handle
+        std::vector<resource_handle> buffer_outputs; // Indexed by buffer handle
     };
 
 } // namespace render_graph
