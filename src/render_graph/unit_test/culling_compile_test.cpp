@@ -70,14 +70,14 @@ namespace render_graph::unit_test
                 .sample_counts = 1,
                 .imported      = false,
             });
-            ctx.write_image(h.a_img0);
+            ctx.write_image(h.a_img0, image_usage::COLOR_ATTACHMENT);
         }
 
         // Pass 1: read A, write B
         void pass_b_setup(pass_setup_context& ctx)
         {
             auto& h = handles();
-            ctx.read_image(h.a_img0);
+            ctx.read_image(h.a_img0, image_usage::SAMPLED);
 
             h.b_img1 = ctx.create_image(image_info{
                 .name          = "b_img1",
@@ -91,14 +91,14 @@ namespace render_graph::unit_test
                 .sample_counts = 1,
                 .imported      = false,
             });
-            ctx.write_image(h.b_img1);
+            ctx.write_image(h.b_img1, image_usage::COLOR_ATTACHMENT);
         }
 
         // Pass 2: read B, write swapchain, declare swapchain output
         void pass_present_setup(pass_setup_context& ctx)
         {
             auto& h = handles();
-            ctx.read_image(h.b_img1);
+            ctx.read_image(h.b_img1, image_usage::SAMPLED);
 
             h.swapchain_img = ctx.create_image(image_info{
                 .name          = "swapchain",
@@ -112,7 +112,7 @@ namespace render_graph::unit_test
                 .sample_counts = 1,
                 .imported      = true,
             });
-            ctx.write_image(h.swapchain_img);
+            ctx.write_image(h.swapchain_img, image_usage::COLOR_ATTACHMENT);
             ctx.declare_image_output(h.swapchain_img);
         }
 
@@ -132,7 +132,7 @@ namespace render_graph::unit_test
                 .sample_counts = 1,
                 .imported      = false,
             });
-            ctx.write_image(h.dead_img0);
+            ctx.write_image(h.dead_img0, image_usage::COLOR_ATTACHMENT);
 
             h.dead_buf0 = ctx.create_buffer(buffer_info{
                 .name     = "dead_buf0",
@@ -140,18 +140,18 @@ namespace render_graph::unit_test
                 .usage    = buffer_usage::STORAGE_BUFFER,
                 .imported = false,
             });
-            ctx.write_buffer(h.dead_buf0);
+            ctx.write_buffer(h.dead_buf0, buffer_usage::STORAGE_BUFFER);
         }
 
         // Pass 4: dead branch consumer (still not output)
         void pass_dead1_setup(pass_setup_context& ctx)
         {
             auto& h = handles();
-            ctx.read_image(h.dead_img0);
-            ctx.read_buffer(h.dead_buf0);
+            ctx.read_image(h.dead_img0, image_usage::SAMPLED);
+            ctx.read_buffer(h.dead_buf0, buffer_usage::STORAGE_BUFFER);
 
             // Rewrite dead buffer to make dependency chain longer, still no outputs.
-            ctx.write_buffer(h.dead_buf0);
+            ctx.write_buffer(h.dead_buf0, buffer_usage::STORAGE_BUFFER);
         }
 
         // Pass 5: debug branch producer
@@ -170,14 +170,14 @@ namespace render_graph::unit_test
                 .sample_counts = 1,
                 .imported      = false,
             });
-            ctx.write_image(h.dbg_img0);
+            ctx.write_image(h.dbg_img0, image_usage::COLOR_ATTACHMENT);
         }
 
         // Pass 6: debug branch consumer, declare debug output
         void pass_dbg1_setup(pass_setup_context& ctx)
         {
             auto& h = handles();
-            ctx.read_image(h.dbg_img0);
+            ctx.read_image(h.dbg_img0, image_usage::SAMPLED);
             ctx.declare_image_output(h.dbg_img0);
         }
 
@@ -191,7 +191,7 @@ namespace render_graph::unit_test
                 .usage    = buffer_usage::STORAGE_BUFFER,
                 .imported = false,
             });
-            ctx.write_buffer(h.stats_buf);
+            ctx.write_buffer(h.stats_buf, buffer_usage::STORAGE_BUFFER);
             ctx.declare_buffer_output(h.stats_buf);
         }
 
@@ -203,7 +203,7 @@ namespace render_graph::unit_test
             // Make sure culling traverses buffer reads as well for image outputs:
             // This pass writes a buffer which pass_b reads (indirectly kept alive).
             // We'll also read a_img0 to connect it.
-            ctx.read_image(h.a_img0);
+            ctx.read_image(h.a_img0, image_usage::SAMPLED);
 
             // Write an auxiliary buffer that pass_b will read.
             auto aux = ctx.create_buffer(buffer_info{
@@ -212,7 +212,7 @@ namespace render_graph::unit_test
                 .usage    = buffer_usage::UNIFORM_BUFFER,
                 .imported = false,
             });
-            ctx.write_buffer(aux);
+            ctx.write_buffer(aux, buffer_usage::UNIFORM_BUFFER);
 
             // Store aux in dead_buf0 slot not to increase test state struct.
             // (Only used to connect dependencies; debugger can still inspect deps lists.)
@@ -224,7 +224,7 @@ namespace render_graph::unit_test
         {
             pass_b_setup(ctx);
             auto& h = handles();
-            ctx.read_buffer(h.dead_buf0);
+            ctx.read_buffer(h.dead_buf0, buffer_usage::UNIFORM_BUFFER);
         }
     } // namespace
 

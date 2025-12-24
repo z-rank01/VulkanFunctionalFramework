@@ -79,7 +79,7 @@ namespace render_graph::unit_test
                 .sample_counts = 1,
                 .imported      = false,
             });
-            ctx.write_image(state.img_a1);
+            ctx.write_image(state.img_a1, image_usage::COLOR_ATTACHMENT);
             state.expect_img(state.img_a1, ctx.current_pass);
 
             state.img_a2 = ctx.create_image(image_info{
@@ -94,7 +94,7 @@ namespace render_graph::unit_test
                 .sample_counts = 1,
                 .imported      = false,
             });
-            ctx.write_image(state.img_a2);
+            ctx.write_image(state.img_a2, image_usage::COLOR_ATTACHMENT);
             state.expect_img(state.img_a2, ctx.current_pass);
 
             state.buf_b1 = ctx.create_buffer(buffer_info{
@@ -103,7 +103,7 @@ namespace render_graph::unit_test
                 .usage    = buffer_usage::NONE,
                 .imported = false,
             });
-            ctx.write_buffer(state.buf_b1);
+            ctx.write_buffer(state.buf_b1, buffer_usage::STORAGE_BUFFER);
             state.expect_buf(state.buf_b1, ctx.current_pass);
         }
 
@@ -112,7 +112,7 @@ namespace render_graph::unit_test
         {
             auto& state = test_state();
 
-            ctx.read_image(state.img_a1);
+            ctx.read_image(state.img_a1, image_usage::SAMPLED);
 
             state.img_b2 = ctx.create_image(image_info{
                 .name          = "img_b2",
@@ -126,12 +126,12 @@ namespace render_graph::unit_test
                 .sample_counts = 1,
                 .imported      = false,
             });
-            ctx.write_image(state.img_b2);
+            ctx.write_image(state.img_b2, image_usage::COLOR_ATTACHMENT);
             state.expect_img(state.img_b2, ctx.current_pass);
 
             // Overwrite producer for buf_b1
-            ctx.read_buffer(state.buf_b1);
-            ctx.write_buffer(state.buf_b1);
+            ctx.read_buffer(state.buf_b1, buffer_usage::STORAGE_BUFFER);
+            ctx.write_buffer(state.buf_b1, buffer_usage::STORAGE_BUFFER);
             state.expect_buf(state.buf_b1, ctx.current_pass);
         }
 
@@ -140,11 +140,11 @@ namespace render_graph::unit_test
         {
             auto& state = test_state();
 
-            ctx.read_image(state.img_b2);
-            ctx.read_buffer(state.buf_b1);
+            ctx.read_image(state.img_b2, image_usage::SAMPLED);
+            ctx.read_buffer(state.buf_b1, buffer_usage::STORAGE_BUFFER);
 
             // Rewrite producer for img_a2
-            ctx.write_image(state.img_a2);
+            ctx.write_image(state.img_a2, image_usage::COLOR_ATTACHMENT);
             state.expect_img(state.img_a2, ctx.current_pass);
 
             state.buf_b3 = ctx.create_buffer(buffer_info{
@@ -153,7 +153,7 @@ namespace render_graph::unit_test
                 .usage    = buffer_usage::NONE,
                 .imported = false,
             });
-            ctx.write_buffer(state.buf_b3);
+            ctx.write_buffer(state.buf_b3, buffer_usage::STORAGE_BUFFER);
             state.expect_buf(state.buf_b3, ctx.current_pass);
         }
 
@@ -175,7 +175,7 @@ namespace render_graph::unit_test
                 .imported      = true,
             });
 
-            ctx.read_image(state.img_external_only);
+            ctx.read_image(state.img_external_only, image_usage::SAMPLED);
             state.expect_img(state.img_external_only, state.invalid_pass());
         }
 
@@ -184,8 +184,8 @@ namespace render_graph::unit_test
         {
             auto& state = test_state();
 
-            ctx.read_image(state.img_a2);
-            ctx.read_image(state.img_external_only);
+            ctx.read_image(state.img_a2, image_usage::SAMPLED);
+            ctx.read_image(state.img_external_only, image_usage::SAMPLED);
 
             state.img_swapchain = ctx.create_image(image_info{
                 .name          = "swapchain_backbuffer_test",
@@ -200,7 +200,7 @@ namespace render_graph::unit_test
                 .imported      = true,
             });
 
-            ctx.write_image(state.img_swapchain);
+            ctx.write_image(state.img_swapchain, image_usage::COLOR_ATTACHMENT);
             state.expect_img(state.img_swapchain, ctx.current_pass);
         }
     } // namespace

@@ -21,6 +21,8 @@ namespace render_graph
         std::vector<resource_handle> begins;
         std::vector<resource_handle> lengthes;
         std::vector<resource_handle> generations;
+        std::vector<image_usage> image_usages;
+        std::vector<buffer_usage> buffer_usages;
     };
 
     // one dimesion array to represent the write resource of each pass
@@ -30,6 +32,8 @@ namespace render_graph
         std::vector<resource_handle> begins;
         std::vector<resource_handle> lengthes;
         std::vector<resource_handle> generations;
+        std::vector<image_usage> image_usages;
+        std::vector<buffer_usage> buffer_usages;
     };
 
     // graph/pass context
@@ -67,33 +71,33 @@ namespace render_graph
         }
 
         // read
-        // at the stage of adding dependency of resource, no need to compute and designate generation of resource
-        // generation will be computed through system inside compile function.
 
-        void read_image(resource_handle resource) const
+        void read_image(resource_handle resource, image_usage usage) const
         {
             image_read_deps->read_list.push_back(resource);
             image_read_deps->lengthes[current_pass]++;
+            image_read_deps->image_usages.push_back(usage);
         }
-        void read_buffer(resource_handle resource) const
+        void read_buffer(resource_handle resource, buffer_usage usage) const
         {
             buffer_read_deps->read_list.push_back(resource);
             buffer_read_deps->lengthes[current_pass]++;
+            buffer_read_deps->buffer_usages.push_back(usage);
         }
 
         // write
-        // at the stage of adding dependency of resource, no need to compute and designate generation of resource
-        // generation will be computed through system inside compile function.
 
-        void write_image(resource_handle resource) const
+        void write_image(resource_handle resource, image_usage usage) const
         {
             image_write_deps->write_list.push_back(resource);
             image_write_deps->lengthes[current_pass]++;
+            image_write_deps->image_usages.push_back(usage);
         }
-        void write_buffer(resource_handle resource) const
+        void write_buffer(resource_handle resource, buffer_usage usage) const
         {
             buffer_write_deps->write_list.push_back(resource);
             buffer_write_deps->lengthes[current_pass]++;
+            buffer_write_deps->buffer_usages.push_back(usage);
         }
     };
 

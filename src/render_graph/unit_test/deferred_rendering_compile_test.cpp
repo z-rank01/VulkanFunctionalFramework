@@ -68,9 +68,9 @@ namespace render_graph::unit_test
                 .imported      = false,
             });
 
-            ctx.write_image(state.gbuffer_albedo);
-            ctx.write_image(state.gbuffer_normal);
-            ctx.write_image(state.gbuffer_depth);
+            ctx.write_image(state.gbuffer_albedo, image_usage::COLOR_ATTACHMENT);
+            ctx.write_image(state.gbuffer_normal, image_usage::COLOR_ATTACHMENT);
+            ctx.write_image(state.gbuffer_depth, image_usage::DEPTH_STENCIL_ATTACHMENT);
         }
 
         void lighting_setup(pass_setup_context& ctx)
@@ -78,9 +78,9 @@ namespace render_graph::unit_test
             auto& state = test_state();
 
             // Read GBuffer, write lighting accumulation
-            ctx.read_image(state.gbuffer_albedo);
-            ctx.read_image(state.gbuffer_normal);
-            ctx.read_image(state.gbuffer_depth);
+            ctx.read_image(state.gbuffer_albedo, image_usage::SAMPLED);
+            ctx.read_image(state.gbuffer_normal, image_usage::SAMPLED);
+            ctx.read_image(state.gbuffer_depth, image_usage::SAMPLED);
 
             state.lighting_hdr = ctx.create_image(image_info{
                 .name          = "lighting_hdr",
@@ -95,7 +95,7 @@ namespace render_graph::unit_test
                 .imported      = false,
             });
 
-            ctx.write_image(state.lighting_hdr);
+            ctx.write_image(state.lighting_hdr, image_usage::COLOR_ATTACHMENT);
         }
 
         void tonemap_setup(pass_setup_context& ctx)
@@ -103,7 +103,7 @@ namespace render_graph::unit_test
             auto& state = test_state();
 
             // Read HDR, write LDR
-            ctx.read_image(state.lighting_hdr);
+            ctx.read_image(state.lighting_hdr, image_usage::SAMPLED);
 
             state.tonemap_ldr = ctx.create_image(image_info{
                 .name          = "tonemap_ldr",
@@ -118,7 +118,7 @@ namespace render_graph::unit_test
                 .imported      = false,
             });
 
-            ctx.write_image(state.tonemap_ldr);
+            ctx.write_image(state.tonemap_ldr, image_usage::COLOR_ATTACHMENT);
         }
 
         void swapchain_setup(pass_setup_context& ctx)
@@ -126,7 +126,7 @@ namespace render_graph::unit_test
             auto& state = test_state();
 
             // Read tonemap result, write to an imported swapchain image.
-            ctx.read_image(state.tonemap_ldr);
+            ctx.read_image(state.tonemap_ldr, image_usage::SAMPLED);
 
             state.swapchain_image = ctx.create_image(image_info{
                 .name          = "swapchain_backbuffer",
@@ -141,7 +141,7 @@ namespace render_graph::unit_test
                 .imported      = true,
             });
 
-            ctx.write_image(state.swapchain_image);
+            ctx.write_image(state.swapchain_image, image_usage::COLOR_ATTACHMENT);
         }
     } // namespace
 

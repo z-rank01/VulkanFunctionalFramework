@@ -126,7 +126,7 @@ namespace render_graph::unit_test
                 .imported      = false,
             });
             state.expected.record_image_write(state.img_g0);
-            ctx.write_image(state.img_g0);
+            ctx.write_image(state.img_g0, image_usage::COLOR_ATTACHMENT);
 
             state.img_g1 = ctx.create_image(image_info{
                 .name          = "g1",
@@ -141,7 +141,7 @@ namespace render_graph::unit_test
                 .imported      = false,
             });
             state.expected.record_image_write(state.img_g1);
-            ctx.write_image(state.img_g1);
+            ctx.write_image(state.img_g1, image_usage::COLOR_ATTACHMENT);
 
             state.buf_b0 = ctx.create_buffer(buffer_info{
                 .name     = "b0",
@@ -150,11 +150,11 @@ namespace render_graph::unit_test
                 .imported = false,
             });
             state.expected.record_buffer_write(state.buf_b0);
-            ctx.write_buffer(state.buf_b0);
+            ctx.write_buffer(state.buf_b0, buffer_usage::STORAGE_BUFFER);
 
             // Double-write the same buffer in one pass (should produce gen 1 on second write).
             state.expected.record_buffer_write(state.buf_b0);
-            ctx.write_buffer(state.buf_b0);
+            ctx.write_buffer(state.buf_b0, buffer_usage::STORAGE_BUFFER);
         }
 
         // Pass1: read both images, read buffer, then overwrite one image and buffer.
@@ -163,20 +163,20 @@ namespace render_graph::unit_test
             auto& state = test_state();
 
             state.expected.record_image_read(state.img_g0);
-            ctx.read_image(state.img_g0);
+            ctx.read_image(state.img_g0, image_usage::SAMPLED);
             state.expected.record_image_read(state.img_g1);
-            ctx.read_image(state.img_g1);
+            ctx.read_image(state.img_g1, image_usage::SAMPLED);
 
             state.expected.record_buffer_read(state.buf_b0);
-            ctx.read_buffer(state.buf_b0);
+            ctx.read_buffer(state.buf_b0, buffer_usage::STORAGE_BUFFER);
 
             // Overwrite img_g1
             state.expected.record_image_write(state.img_g1);
-            ctx.write_image(state.img_g1);
+            ctx.write_image(state.img_g1, image_usage::COLOR_ATTACHMENT);
 
             // Overwrite buf_b0
             state.expected.record_buffer_write(state.buf_b0);
-            ctx.write_buffer(state.buf_b0);
+            ctx.write_buffer(state.buf_b0, buffer_usage::STORAGE_BUFFER);
         }
 
         // Pass2: create an imported external image and read it; create/write a lighting image; create/write a second buffer.
@@ -197,11 +197,11 @@ namespace render_graph::unit_test
                 .imported      = true,
             });
             state.expected.record_image_read(state.img_external);
-            ctx.read_image(state.img_external);
+            ctx.read_image(state.img_external, image_usage::SAMPLED);
 
             // Read the overwritten g1
             state.expected.record_image_read(state.img_g1);
-            ctx.read_image(state.img_g1);
+            ctx.read_image(state.img_g1, image_usage::SAMPLED);
 
             state.img_l0 = ctx.create_image(image_info{
                 .name          = "l0",
@@ -216,7 +216,7 @@ namespace render_graph::unit_test
                 .imported      = false,
             });
             state.expected.record_image_write(state.img_l0);
-            ctx.write_image(state.img_l0);
+            ctx.write_image(state.img_l0, image_usage::COLOR_ATTACHMENT);
 
             state.buf_b1 = ctx.create_buffer(buffer_info{
                 .name     = "b1",
@@ -225,7 +225,7 @@ namespace render_graph::unit_test
                 .imported = false,
             });
             state.expected.record_buffer_write(state.buf_b1);
-            ctx.write_buffer(state.buf_b1);
+            ctx.write_buffer(state.buf_b1, buffer_usage::UNIFORM_BUFFER);
         }
 
         // Pass3: read l0 and external; write g0 again; read/write both buffers.
@@ -234,24 +234,24 @@ namespace render_graph::unit_test
             auto& state = test_state();
 
             state.expected.record_image_read(state.img_l0);
-            ctx.read_image(state.img_l0);
+            ctx.read_image(state.img_l0, image_usage::SAMPLED);
             state.expected.record_image_read(state.img_external);
-            ctx.read_image(state.img_external);
+            ctx.read_image(state.img_external, image_usage::SAMPLED);
 
             // Rewrite g0
             state.expected.record_image_write(state.img_g0);
-            ctx.write_image(state.img_g0);
+            ctx.write_image(state.img_g0, image_usage::COLOR_ATTACHMENT);
 
             // Buffers
             state.expected.record_buffer_read(state.buf_b1);
-            ctx.read_buffer(state.buf_b1);
+            ctx.read_buffer(state.buf_b1, buffer_usage::UNIFORM_BUFFER);
             state.expected.record_buffer_read(state.buf_b0);
-            ctx.read_buffer(state.buf_b0);
+            ctx.read_buffer(state.buf_b0, buffer_usage::STORAGE_BUFFER);
 
             state.expected.record_buffer_write(state.buf_b1);
-            ctx.write_buffer(state.buf_b1);
+            ctx.write_buffer(state.buf_b1, buffer_usage::UNIFORM_BUFFER);
             state.expected.record_buffer_write(state.buf_b0);
-            ctx.write_buffer(state.buf_b0);
+            ctx.write_buffer(state.buf_b0, buffer_usage::STORAGE_BUFFER);
         }
     } // namespace
 
