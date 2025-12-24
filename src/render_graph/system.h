@@ -168,7 +168,12 @@ namespace render_graph
                     for (auto j = write_begin; j < write_begin + write_length; j++)
                     {
                         const auto image = image_write_deps.write_list[j];
-                        const auto next_version  = image_next_versions[image];
+                        if (image >= image_count)
+                        {
+                            img_ver_write_handles[j] = invalid_resource_version;
+                            continue;
+                        }
+                        const auto next_version = image_next_versions[image];
                         img_ver_write_handles[j] = pack(image, next_version);
                         image_next_versions[image] = static_cast<version_handle>(next_version + 1);
                     }
@@ -201,7 +206,12 @@ namespace render_graph
                     for (auto j = write_begin; j < write_begin + write_length; j++)
                     {
                         const auto buffer = buffer_write_deps.write_list[j];
-                        const auto next_version   = buffer_next_versions[buffer];
+                        if (buffer >= buffer_count)
+                        {
+                            buf_ver_write_handles[j] = invalid_resource_version;
+                            continue;
+                        }
+                        const auto next_version = buffer_next_versions[buffer];
                         buf_ver_write_handles[j] = pack(buffer, next_version);
                         buffer_next_versions[buffer] = static_cast<version_handle>(next_version + 1);
                     }
@@ -367,6 +377,50 @@ namespace render_graph
                 enqueue_pass(producer_lookup_table.buf_version_producers[idx]);
             };
 
+            auto get_image_producer = [&](resource_version_handle version) -> pass_handle
+            {
+                if (version == invalid_resource_version)
+                {
+                    return invalid_pass;
+                }
+                const auto image_handle = unpack_to_resource(version);
+                const auto ver          = unpack_to_version(version);
+                if (image_handle >= image_count)
+                {
+                    return invalid_pass;
+                }
+                const auto base = producer_lookup_table.img_version_offsets[image_handle];
+                const auto end  = producer_lookup_table.img_version_offsets[image_handle + 1];
+                const auto idx  = static_cast<uint32_t>(base + ver);
+                if (idx >= end)
+                {
+                    return invalid_pass;
+                }
+                return producer_lookup_table.img_version_producers[idx];
+            };
+
+            auto get_buffer_producer = [&](resource_version_handle version) -> pass_handle
+            {
+                if (version == invalid_resource_version)
+                {
+                    return invalid_pass;
+                }
+                const auto buffer_handle = unpack_to_resource(version);
+                const auto ver           = unpack_to_version(version);
+                if (buffer_handle >= buffer_count)
+                {
+                    return invalid_pass;
+                }
+                const auto base = producer_lookup_table.buf_version_offsets[buffer_handle];
+                const auto end  = producer_lookup_table.buf_version_offsets[buffer_handle + 1];
+                const auto idx  = static_cast<uint32_t>(base + ver);
+                if (idx >= end)
+                {
+                    return invalid_pass;
+                }
+                return producer_lookup_table.buf_version_producers[idx];
+            };
+
             // Seed roots from declared outputs (images/buffers)
             for (const auto output_image : output_table.image_outputs)
             {
@@ -410,14 +464,99 @@ namespace render_graph
                 }
             }
 
-            // Step E: Validation (Recommended)
+            // Step E: Validate Resource
             // Validate graph correctness early and fail fast in debug builds.
             // Typical checks:
             // - Read-before-write on non-imported resources (producer == invalid_pass)
             // - Out-of-range resource handles in deps lists
-            // - Multiple writers to same logical resource (until versioning is implemented)
             // - Empty output set (no roots) -> everything will be culled
-            // - Cycles (once dependency edges exist)
+            
+            // check outputs
+            assert((!output_table.image_outputs.empty() || !output_table.buffer_outputs.empty()) && "Error: No outputs declared");
+
+            // check read-before-write issues and out-of-range handles
+            for (size_t i = 0; i < pass_count; i++)
+            {
+                if (!active_pass_flags[i]) continue;
+
+                const auto current_pass = graph.passes[i];
+                // image reads
+                {
+                    const auto read_begin  = image_read_deps.begins[current_pass];
+                    const auto read_length = image_read_deps.lengthes[current_pass];
+                    for (auto j = read_begin; j < read_begin + read_length; j++)
+                    {
+                        const auto image_handle = image_read_deps.read_list[j];
+                        if (image_handle >= image_count)
+                        {
+                            assert(false && "Error: Image read out-of-range detected!");
+                        }
+
+                        const auto version_handle = img_ver_read_handles[j];
+                        const bool is_imported    = meta_table.image_metas.is_imported[image_handle];
+                        const auto producer       = get_image_producer(version_handle);
+
+                        if (version_handle == invalid_resource_version)
+                        {
+                            // next_version==0: no internal write happened before this read.
+                            // This is only legal for imported resources.
+                            assert(is_imported && "Error: Image read-before-write detected!");
+                        }
+                        else
+                        {
+                            assert((is_imported || producer != invalid_pass) && "Error: Image read-before-write detected!");
+                        }
+                    }
+                }
+                // buffer reads
+                {
+                    const auto read_begin  = buffer_read_deps.begins[current_pass];
+                    const auto read_length = buffer_read_deps.lengthes[current_pass];
+                    for (auto j = read_begin; j < read_begin + read_length; j++)
+                    {
+                        const auto buffer_handle = buffer_read_deps.read_list[j];
+                        if (buffer_handle >= buffer_count)
+                        {
+                            assert(false && "Error: Buffer read out-of-range detected!");
+                        }
+
+                        const auto version_handle = buf_ver_read_handles[j];
+                        const bool is_imported    = meta_table.buffer_metas.is_imported[buffer_handle];
+                        const auto producer       = get_buffer_producer(version_handle);
+
+                        if (version_handle == invalid_resource_version)
+                        {
+                            assert(is_imported && "Error: Buffer read-before-write detected!");
+                        }
+                        else
+                        {
+                            assert((is_imported || producer != invalid_pass) && "Error: Buffer read-before-write detected!");
+                        }
+                    }
+                }
+                // image writes
+                {
+                    const auto write_begin  = image_write_deps.begins[current_pass];
+                    const auto write_length = image_write_deps.lengthes[current_pass];
+                    for (auto j = write_begin; j < write_begin + write_length; j++)
+                    {
+                        const auto image_handle = image_write_deps.write_list[j];
+                        assert(image_handle < image_count && "Error: Image write out-of-range detected!");
+                        assert(img_ver_write_handles[j] != invalid_resource_version && "Error: Image write out-of-range detected!");
+                    }
+                }
+                // buffer writes
+                {
+                    const auto write_begin  = buffer_write_deps.begins[current_pass];
+                    const auto write_length = buffer_write_deps.lengthes[current_pass];
+                    for (auto j = write_begin; j < write_begin + write_length; j++)
+                    {
+                        const auto buffer_handle = buffer_write_deps.write_list[j];
+                        assert(buffer_handle < buffer_count && "Error: Buffer write out-of-range detected!");
+                        assert(buf_ver_write_handles[j] != invalid_resource_version && "Error: Buffer write out-of-range detected!");
+                    }
+                }
+            }
 
             // Step F: DAG Construction (Not yet implemented)
             // Build pass-to-pass edges based on read dependencies and producer lookup:
@@ -427,6 +566,11 @@ namespace render_graph
             // - adjacency list (or CSR) for passes
             // - in-degree counts for topo sort
 
+            // Step G: Validate DAG (Not yet implemented)
+            // Validate constructed DAG:
+            // - No cycles (would block scheduling)
+            // - All live passes reachable from roots (should be guaranteed by culling)
+
             // Step G: Scheduling / Topological Order (Not yet implemented)
             // Compute execution order for live passes (Kahn / DFS topo sort).
             // - If cycle detected => error
@@ -435,35 +579,26 @@ namespace render_graph
             // Future:
             // - parallel layers (no-dependency groups)
 
-            // Step H: Resource Versioning (Not yet implemented)
-            // Turn "multiple writes to same handle" into versions (handle, generation/version).
-            // This makes:
-            // - dependency analysis precise
-            // - lifetime analysis correct
-            // - aliasing possible
-            // Note: you already compute generations per dep entry; next step is to promote that into
-            // a stable "logical resource version" identity used throughout compile/execute.
-
-            // Step I: Lifetime Analysis & Aliasing (Not yet implemented)
+            // Step H: Lifetime Analysis & Aliasing (Not yet implemented)
             // For each resource version, compute first/last use across the scheduled pass order.
             // Use this to:
             // - allocate transient resources from pools
             // - alias memory for non-overlapping lifetimes
 
-            // Step J: Physical Resource Allocation (Not yet implemented)
+            // Step I: Physical Resource Allocation (Not yet implemented)
             // Create actual GPU resources for live, non-imported resources.
             // - Filter out culled passes and unused resources
             // - Imported resources: do not create; expect bind_imported_* later (frame loop)
             // - Call backend to create/realize resources (possibly from pools)
 
-            // Step K: Synchronization / Barrier Planning (Not yet implemented)
+            // Step J: Synchronization / Barrier Planning (Not yet implemented)
             // Build per-pass barrier lists based on resource access transitions between passes.
             // - Vulkan: layout transitions + src/dst stage/access
             // - DX12: resource state transitions
             // Output:
             // - per-pass barrier plan consumed by execute()
 
-            // Step L: Execute Plan Build (Not yet implemented)
+            // Step K: Execute Plan Build (Not yet implemented)
             // Finalize everything execute() needs:
             // - ordered pass list
             // - per-pass execute context (resolved resource handles)
