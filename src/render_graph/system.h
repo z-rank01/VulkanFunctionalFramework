@@ -269,11 +269,64 @@ namespace render_graph
                 }
             }
 
-            // Step E: Resource Allocation
-            // 1. Filter out resources that are not used by active passes (if needed)
-            // 2. Call backend to create physical resources
+            // Step E: Validation (Recommended)
+            // Validate graph correctness early and fail fast in debug builds.
+            // Typical checks:
+            // - Read-before-write on non-imported resources (producer == invalid_pass)
+            // - Out-of-range resource handles in deps lists
+            // - Multiple writers to same logical resource (until versioning is implemented)
+            // - Empty output set (no roots) -> everything will be culled
+            // - Cycles (once dependency edges exist)
 
-            // Step F:
+            // Step F: DAG Construction (Not yet implemented)
+            // Build pass-to-pass edges based on read dependencies and producer lookup:
+            // - For each live pass P and each resource R in P.read_list:
+            //   producer = proc_map[R]; if producer valid and producer != P => add edge producer -> P
+            // Output:
+            // - adjacency list (or CSR) for passes
+            // - in-degree counts for topo sort
+
+            // Step G: Scheduling / Topological Order (Not yet implemented)
+            // Compute execution order for live passes (Kahn / DFS topo sort).
+            // - If cycle detected => error
+            // Store:
+            // - a vector of sorted live passes
+            // Future:
+            // - parallel layers (no-dependency groups)
+
+            // Step H: Resource Versioning (Not yet implemented)
+            // Turn "multiple writes to same handle" into versions (handle, generation/version).
+            // This makes:
+            // - dependency analysis precise
+            // - lifetime analysis correct
+            // - aliasing possible
+            // Note: you already compute generations per dep entry; next step is to promote that into
+            // a stable "logical resource version" identity used throughout compile/execute.
+
+            // Step I: Lifetime Analysis & Aliasing (Not yet implemented)
+            // For each resource version, compute first/last use across the scheduled pass order.
+            // Use this to:
+            // - allocate transient resources from pools
+            // - alias memory for non-overlapping lifetimes
+
+            // Step J: Physical Resource Allocation (Not yet implemented)
+            // Create actual GPU resources for live, non-imported resources.
+            // - Filter out culled passes and unused resources
+            // - Imported resources: do not create; expect bind_imported_* later (frame loop)
+            // - Call backend to create/realize resources (possibly from pools)
+
+            // Step K: Synchronization / Barrier Planning (Not yet implemented)
+            // Build per-pass barrier lists based on resource access transitions between passes.
+            // - Vulkan: layout transitions + src/dst stage/access
+            // - DX12: resource state transitions
+            // Output:
+            // - per-pass barrier plan consumed by execute()
+
+            // Step L: Execute Plan Build (Not yet implemented)
+            // Finalize everything execute() needs:
+            // - ordered pass list
+            // - per-pass execute context (resolved resource handles)
+            // - per-pass barrier plan
         }
 
         // 3. Execution System
