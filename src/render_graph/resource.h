@@ -8,8 +8,29 @@
 
 namespace render_graph
 {
-    using resource_handle = uint32_t;
-    using pass_handle     = uint32_t;
+    using resource_version_handle = uint64_t; // high 32: version, low 32: index
+    using resource_handle         = uint32_t;
+    using version_handle          = uint32_t;
+    using pass_handle             = uint32_t;
+
+    // resource version pack/unpack tool
+
+    inline constexpr resource_version_handle invalid_resource_version = 0xFFFFFFFFFFFFFFFFULL;
+
+    [[nodiscard]] inline constexpr resource_version_handle pack(resource_handle index, version_handle version) noexcept
+    {
+        return (static_cast<resource_version_handle>(version) << 32) | static_cast<resource_version_handle>(index);
+    }
+
+    [[nodiscard]] inline constexpr resource_handle unpack_to_resource(resource_version_handle handle) noexcept
+    {
+        return static_cast<resource_handle>(handle & 0xFFFFFFFF);
+    }
+
+    [[nodiscard]] inline constexpr version_handle unpack_to_version(resource_version_handle handle) noexcept
+    {
+        return static_cast<version_handle>((handle >> 32) & 0xFFFFFFFF);
+    }
 
     // Helper struct for user convenience
     struct image_info
@@ -53,7 +74,7 @@ namespace render_graph
         std::vector<bool> is_imported;  // If true, handle is provided externally (backbuffer, etc.)
         std::vector<bool> is_transient; // If true, memory can be aliased/lazy allocated
 
-        // Helper to add a new image meta and return its handle (index)
+        // Helper to add a new image meta and return its resource index(not versioned)
         resource_handle add(const image_info& info)
         {
             auto handle = static_cast<resource_handle>(names.size());
@@ -100,7 +121,8 @@ namespace render_graph
         // Lifecycle / Graph properties
         std::vector<bool> is_imported;  // If true, handle is provided externally (backbuffer, etc.)
         std::vector<bool> is_transient; // If true, memory can be aliased/lazy allocated
-
+        
+        // Helper to add a new buffer meta and return its resource index(not versioned)
         resource_handle add(const buffer_info& info)
         {
             auto handle = static_cast<resource_handle>(names.size());
@@ -133,10 +155,36 @@ namespace render_graph
         }
     };
 
-    struct resource_producer_lookup_table
+    // Version -> producer lookup in DOD (flat array) form.
+    //
+    // For each resource_handle h, all its versions [0..N) occupy a contiguous range:
+    //   base = *_version_offsets[h]
+    //   producer(h, v) = *_version_producers[ base + v ]
+    // with version count N = offsets[h+1] - offsets[h].
+    //
+    // NOTE: resource_version_handle (packed u64) is NOT a valid vector index.
+    // Always unpack to (resource_handle, version_handle) first.
+    struct version_producer_map
     {
-        std::vector<pass_handle> img_proc_map; // Indexed by image handle
-        std::vector<pass_handle> buf_proc_map; // Indexed by buffer handle
+        // Images
+        std::vector<uint32_t> img_version_offsets;   // size = image_count + 1
+        std::vector<pass_handle> img_version_producers; // size = total image versions
+        std::vector<resource_version_handle> img_latest; // size = image_count, pack(h, latest_version)
+
+        // Buffers
+        std::vector<uint32_t> buf_version_offsets;   // size = buffer_count + 1
+        std::vector<pass_handle> buf_version_producers; // size = total buffer versions
+        std::vector<resource_version_handle> buf_latest; // size = buffer_count, pack(h, latest_version)
+
+        void clear()
+        {
+            img_version_offsets.clear();
+            img_version_producers.clear();
+            img_latest.clear();
+            buf_version_offsets.clear();
+            buf_version_producers.clear();
+            buf_latest.clear();
+        }
     };
 
     struct output_table

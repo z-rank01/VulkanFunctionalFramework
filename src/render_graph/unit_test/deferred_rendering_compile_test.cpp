@@ -8,12 +8,12 @@ namespace render_graph::unit_test
     {
         struct test_state_t
         {
-            resource_handle gbuffer_albedo  = 0;
-            resource_handle gbuffer_normal  = 0;
-            resource_handle gbuffer_depth   = 0;
-            resource_handle lighting_hdr    = 0;
-            resource_handle tonemap_ldr     = 0;
-            resource_handle swapchain_image = 0;
+            resource_version_handle gbuffer_albedo  = 0;
+            resource_version_handle gbuffer_normal  = 0;
+            resource_version_handle gbuffer_depth   = 0;
+            resource_version_handle lighting_hdr    = 0;
+            resource_version_handle tonemap_ldr     = 0;
+            resource_version_handle swapchain_image = 0;
         };
 
         test_state_t& test_state()

@@ -31,19 +31,19 @@ namespace render_graph::unit_test
         struct handles_t
         {
             // Branch A -> B -> Present (image output)
-            resource_handle a_img0 = 0;
-            resource_handle b_img1 = 0;
-            resource_handle swapchain_img = 0;
+            resource_version_handle a_img0 = 0;
+            resource_version_handle b_img1 = 0;
+            resource_version_handle swapchain_img = 0;
 
             // Debug branch D -> E (debug image output)
-            resource_handle dbg_img0 = 0;
+            resource_version_handle dbg_img0 = 0;
 
             // Buffer output branch
-            resource_handle stats_buf = 0;
+            resource_version_handle stats_buf = 0;
 
             // Culled branches (written but never reaches any output)
-            resource_handle dead_img0 = 0;
-            resource_handle dead_buf0 = 0;
+            resource_version_handle dead_img0 = 0;
+            resource_version_handle dead_buf0 = 0;
         };
 
         handles_t& handles()

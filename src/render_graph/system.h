@@ -19,7 +19,15 @@ namespace render_graph
         write_dependency image_write_deps;
         read_dependency buffer_read_deps;
         write_dependency buffer_write_deps;
-        resource_producer_lookup_table producer_lookup_table;
+
+        // Versioned dependency views generated during compile().
+        // These are compile-time/internal and are derived from *_deps + versioning rules.
+        std::vector<resource_version_handle> img_ver_read_handles;
+        std::vector<resource_version_handle> img_ver_write_handles;
+        std::vector<resource_version_handle> buf_ver_read_handles;
+        std::vector<resource_version_handle> buf_ver_write_handles;
+
+        version_producer_map producer_lookup_table;
         output_table output_table;
 
         // pass related
@@ -49,26 +57,36 @@ namespace render_graph
         void compile()
         {
             const auto pass_count = graph.passes.size();
+            const auto invalid_pass = std::numeric_limits<pass_handle>::max();
 
             // Reset dependency storage
             image_read_deps.read_list.clear();
             image_read_deps.begins.assign(pass_count, 0);
             image_read_deps.lengthes.assign(pass_count, 0);
-            image_read_deps.generations.clear();
+            image_read_deps.image_usages.clear();
+            image_read_deps.buffer_usages.clear();
             image_write_deps.write_list.clear();
             image_write_deps.begins.assign(pass_count, 0);
             image_write_deps.lengthes.assign(pass_count, 0);
-            image_write_deps.generations.clear();
+            image_write_deps.image_usages.clear();
+            image_write_deps.buffer_usages.clear();
             buffer_read_deps.read_list.clear();
             buffer_read_deps.begins.assign(pass_count, 0);
             buffer_read_deps.lengthes.assign(pass_count, 0);
-            buffer_read_deps.generations.clear();
+            buffer_read_deps.image_usages.clear();
+            buffer_read_deps.buffer_usages.clear();
             buffer_write_deps.write_list.clear();
             buffer_write_deps.begins.assign(pass_count, 0);
             buffer_write_deps.lengthes.assign(pass_count, 0);
-            buffer_write_deps.generations.clear();
+            buffer_write_deps.image_usages.clear();
+            buffer_write_deps.buffer_usages.clear();
             output_table.image_outputs.clear();
             output_table.buffer_outputs.clear();
+
+            img_ver_read_handles.clear();
+            img_ver_write_handles.clear();
+            buf_ver_read_handles.clear();
+            buf_ver_write_handles.clear();
 
             // Step A: Invoke Setup Functions
             // Invoke setup function to collect resource usages so that we
@@ -97,104 +115,191 @@ namespace render_graph
                 setup_func(setup_ctx);
             }
 
-            // Step B: Build resource-producer map
-            // Map each resource to the pass that writes to it.
-            // Accelerate lookups during culling and dag construction.
-            // - Read: graph.passes, image_write_deps, buffer_write_deps
-            // - Write: producer_lookup_table
-
             const auto image_count  = meta_table.image_metas.names.size();
             const auto buffer_count = meta_table.buffer_metas.names.size();
-            producer_lookup_table.img_proc_map.assign(image_count, std::numeric_limits<pass_handle>::max());
-            producer_lookup_table.buf_proc_map.assign(buffer_count, std::numeric_limits<pass_handle>::max());
+
+            // Step B: Compute Resource Version (pack handle + version)
+            // User-facing setup stage uses resource_handle only.
+            // Here we derive a versioned view for internal compile-time algorithms.
+            // IMPORTANT:
+            // - Never use resource_version_handle (packed u64) as a vector index.
+            // - Only index SoA arrays by resource_handle (low 32 bits).
+            // - Read: graph.passes, *_deps
+            // - Write: *_versions
+
+            img_ver_read_handles.resize(image_read_deps.read_list.size());
+            img_ver_write_handles.resize(image_write_deps.write_list.size());
+            buf_ver_read_handles.resize(buffer_read_deps.read_list.size());
+            buf_ver_write_handles.resize(buffer_write_deps.write_list.size());
+
+            std::vector<version_handle> image_next_versions(image_count, 0);
+            std::vector<version_handle> buffer_next_versions(buffer_count, 0);
+
             for (size_t i = 0; i < pass_count; i++)
             {
-                auto current_pass = graph.passes[i];
-                auto begin        = image_write_deps.begins[current_pass];
-                auto length       = image_write_deps.lengthes[current_pass];
-                for (auto j = begin; j < begin + length; j++)
+                const auto current_pass = graph.passes[i];
+
+                // image reads
                 {
-                    auto image                                = image_write_deps.write_list[j];
-                    producer_lookup_table.img_proc_map[image] = current_pass;
+                    const auto read_begin  = image_read_deps.begins[current_pass];
+                    const auto read_length = image_read_deps.lengthes[current_pass];
+                    for (auto j = read_begin; j < read_begin + read_length; j++)
+                    {
+                        const auto image = image_read_deps.read_list[j];
+                        const auto next_version  = (image < image_next_versions.size()) ? image_next_versions[image] : 0;
+                        if (next_version == 0)
+                        {
+                            // Unwritten (or imported-only) at this point; treat as having no producer.
+                            // Validation should catch illegal read-before-write for non-imported resources.
+                            img_ver_read_handles[j] = invalid_resource_version;
+                        }
+                        else
+                        {
+                            const auto version = static_cast<version_handle>(next_version - 1);
+                            img_ver_read_handles[j] = pack(image, version);
+                        }
+                    }
+                }
+
+                // image writes
+                {
+                    const auto write_begin  = image_write_deps.begins[current_pass];
+                    const auto write_length = image_write_deps.lengthes[current_pass];
+                    for (auto j = write_begin; j < write_begin + write_length; j++)
+                    {
+                        const auto image = image_write_deps.write_list[j];
+                        const auto next_version  = image_next_versions[image];
+                        img_ver_write_handles[j] = pack(image, next_version);
+                        image_next_versions[image] = static_cast<version_handle>(next_version + 1);
+                    }
+                }
+
+                // buffer reads
+                {
+                    const auto read_begin  = buffer_read_deps.begins[current_pass];
+                    const auto read_length = buffer_read_deps.lengthes[current_pass];
+                    for (auto j = read_begin; j < read_begin + read_length; j++)
+                    {
+                        const auto buffer = buffer_read_deps.read_list[j];
+                        const auto next_version   = (buffer < buffer_next_versions.size()) ? buffer_next_versions[buffer] : 0;
+                        if (next_version == 0)
+                        {
+                            buf_ver_read_handles[j] = invalid_resource_version;
+                        }
+                        else
+                        {
+                            const auto version = static_cast<version_handle>(next_version - 1);
+                            buf_ver_read_handles[j] = pack(buffer, version);
+                        }
+                    }
+                }
+
+                // buffer writes
+                {
+                    const auto write_begin  = buffer_write_deps.begins[current_pass];
+                    const auto write_length = buffer_write_deps.lengthes[current_pass];
+                    for (auto j = write_begin; j < write_begin + write_length; j++)
+                    {
+                        const auto buffer = buffer_write_deps.write_list[j];
+                        const auto next_version   = buffer_next_versions[buffer];
+                        buf_ver_write_handles[j] = pack(buffer, next_version);
+                        buffer_next_versions[buffer] = static_cast<version_handle>(next_version + 1);
+                    }
                 }
             }
+
+            // Step C: Build resource-producer map (+ latest version per handle)
+            // Build version -> producer lookup in a flat array (DOD/SoA friendly):
+            // - offsets are indexed by resource_handle
+            // - producers are indexed by (offset + version)
+            // - Read: graph.passes, image_write_deps, buffer_write_deps, *_write_versions
+            // - Write: producer_lookup_table
+
+            // Build image offsets + latest
+            producer_lookup_table.img_version_offsets.assign(static_cast<size_t>(image_count) + 1, 0);
+            producer_lookup_table.img_latest.assign(image_count, invalid_resource_version);
+            {
+                uint32_t running = 0;
+                for (resource_handle image = 0; image < image_count; image++)
+                {
+                    producer_lookup_table.img_version_offsets[image] = running;
+                    const auto version = image_next_versions[image];
+                    if (version > 0)
+                    {
+                        producer_lookup_table.img_latest[image] = pack(image, static_cast<version_handle>(version - 1));
+                    }
+                    running = (running + static_cast<uint32_t>(version));
+                }
+                producer_lookup_table.img_version_offsets[image_count] = running;
+                producer_lookup_table.img_version_producers.assign(running, invalid_pass);
+            }
+
+            // Build buffer offsets + latest
+            producer_lookup_table.buf_version_offsets.assign(static_cast<size_t>(buffer_count) + 1, 0);
+            producer_lookup_table.buf_latest.assign(buffer_count, invalid_resource_version);
+            {
+                uint32_t running = 0;
+                for (resource_handle buffer = 0; buffer < buffer_count; buffer++)
+                {
+                    producer_lookup_table.buf_version_offsets[buffer] = running;
+                    const auto version = buffer_next_versions[buffer];
+                    if (version > 0)
+                    {
+                        producer_lookup_table.buf_latest[buffer] = pack(buffer, static_cast<version_handle>(version - 1));
+                    }
+                    running = (running + static_cast<uint32_t>(version));
+                }
+                producer_lookup_table.buf_version_offsets[buffer_count] = running;
+                producer_lookup_table.buf_version_producers.assign(running, invalid_pass);
+            }
+
+            // Fill image producers for each (image, version)
             for (size_t i = 0; i < pass_count; i++)
             {
-                auto current_pass = graph.passes[i];
-                auto begin        = buffer_write_deps.begins[current_pass];
-                auto length       = buffer_write_deps.lengthes[current_pass];
+                const auto current_pass = graph.passes[i];
+                const auto begin        = image_write_deps.begins[current_pass];
+                const auto length       = image_write_deps.lengthes[current_pass];
                 for (auto j = begin; j < begin + length; j++)
                 {
-                    auto buffer                                = buffer_write_deps.write_list[j];
-                    producer_lookup_table.buf_proc_map[buffer] = current_pass;
+                    const auto image_version_handle   = img_ver_write_handles[j];
+                    const auto image   = unpack_to_resource(image_version_handle);
+                    const auto version = unpack_to_version(image_version_handle);
+                    if (image >= image_count)
+                    {
+                        continue;
+                    }
+                    const auto base = producer_lookup_table.img_version_offsets[image];
+                    const auto end  = producer_lookup_table.img_version_offsets[image + 1];
+                    const auto idx  = static_cast<uint32_t>(base + version);
+                    if (idx < end)
+                    {
+                        producer_lookup_table.img_version_producers[idx] = current_pass;
+                    }
                 }
             }
 
-            // Step C: Compute Resource Generation
-            // compute generation list inside image and buffer dependency structure,
-            // prepare for graph culling and dag construction.
-            // - Read: graph.passes, image_read_deps, image_write_deps, buffer_read_deps, buffer_write_deps
-            // - Write: image_read_deps.generations, image_write_deps.generations, buffer_read_deps.generations, buffer_write_deps.generations
-
-            // Prepare generation arrays.
-            const auto image_read_count   = image_read_deps.read_list.size();
-            const auto image_write_count  = image_write_deps.write_list.size();
-            const auto buffer_read_count  = buffer_read_deps.read_list.size();
-            const auto buffer_write_count = buffer_write_deps.write_list.size();
-            image_read_deps.generations.assign(image_read_count, 0);
-            image_write_deps.generations.assign(image_write_count, 0);
-            buffer_read_deps.generations.assign(buffer_read_count, 0);
-            buffer_write_deps.generations.assign(buffer_write_count, 0);
-
-            // We store the "next generation" to be assigned on a write.
-            // - On write: gen = next_gen; next_gen++
-            // - On read: gen = (next_gen == 0) ? 0 : (next_gen - 1)
-            std::vector<resource_handle> image_next_gen(image_count, 0);
-            std::vector<resource_handle> buffer_next_gen(buffer_count, 0);
+            // Fill buffer producers for each (buffer, version)
             for (size_t i = 0; i < pass_count; i++)
             {
-                auto current_pass = graph.passes[i];
-
-                // compute image generation that current pass reads.
-                auto read_begin  = image_read_deps.begins[current_pass];
-                auto read_length = image_read_deps.lengthes[current_pass];
-                for (auto j = read_begin; j < read_begin + read_length; j++)
+                const auto current_pass = graph.passes[i];
+                const auto begin        = buffer_write_deps.begins[current_pass];
+                const auto length       = buffer_write_deps.lengthes[current_pass];
+                for (auto j = begin; j < begin + length; j++)
                 {
-                    auto image                     = image_read_deps.read_list[j];
-                    auto next_gen                  = image_next_gen[image];
-                    image_read_deps.generations[j] = (next_gen == 0) ? 0 : (next_gen - 1);
-                }
-
-                // compute image generation that current pass writes.
-                auto write_begin  = image_write_deps.begins[current_pass];
-                auto write_length = image_write_deps.lengthes[current_pass];
-                for (auto j = write_begin; j < write_begin + write_length; j++)
-                {
-                    auto image                      = image_write_deps.write_list[j];
-                    auto next_gen                   = image_next_gen[image];
-                    image_write_deps.generations[j] = next_gen;
-                    image_next_gen[image]           = next_gen + 1;
-                }
-
-                // compute buffer generations that current pass reads.
-                auto buf_read_begin  = buffer_read_deps.begins[current_pass];
-                auto buf_read_length = buffer_read_deps.lengthes[current_pass];
-                for (auto j = buf_read_begin; j < buf_read_begin + buf_read_length; j++)
-                {
-                    auto buffer                     = buffer_read_deps.read_list[j];
-                    auto next_gen                   = buffer_next_gen[buffer];
-                    buffer_read_deps.generations[j] = (next_gen == 0) ? 0 : (next_gen - 1);
-                }
-
-                // compute buffer generations that current pass writes.
-                auto buf_write_begin  = buffer_write_deps.begins[current_pass];
-                auto buf_write_length = buffer_write_deps.lengthes[current_pass];
-                for (auto j = buf_write_begin; j < buf_write_begin + buf_write_length; j++)
-                {
-                    auto buffer                      = buffer_write_deps.write_list[j];
-                    auto next_gen                    = buffer_next_gen[buffer];
-                    buffer_write_deps.generations[j] = next_gen;
-                    buffer_next_gen[buffer]          = next_gen + 1;
+                    const auto buffer_version_handle   = buf_ver_write_handles[j];
+                    const auto buffer   = unpack_to_resource(buffer_version_handle);
+                    const auto version = unpack_to_version(buffer_version_handle);
+                    if (buffer >= buffer_count)
+                    {
+                        continue;
+                    }
+                    const auto base = producer_lookup_table.buf_version_offsets[buffer];
+                    const auto end  = producer_lookup_table.buf_version_offsets[buffer + 1];
+                    const auto idx  = static_cast<uint32_t>(base + version);
+                    if (idx < end)
+                    {
+                        producer_lookup_table.buf_version_producers[idx] = current_pass;
+                    }
                 }
             }
 
@@ -203,7 +308,7 @@ namespace render_graph
 
             active_pass_flags.assign(pass_count, false);
             std::queue<pass_handle> worklist;
-            const auto invalid_pass = std::numeric_limits<pass_handle>::max();
+            // invalid_pass is defined above for producer map.
 
             auto enqueue_pass = [&](pass_handle pass)
             {
@@ -218,19 +323,63 @@ namespace render_graph
                 }
             };
 
+            auto enqueue_image_producer = [&](resource_version_handle version)
+            {
+                if (version == invalid_resource_version)
+                {
+                    return;
+                }
+                const auto image   = unpack_to_resource(version);
+                const auto ver = unpack_to_version(version);
+                if (image >= image_count)
+                {
+                    return;
+                }
+                const auto base = producer_lookup_table.img_version_offsets[image];
+                const auto end  = producer_lookup_table.img_version_offsets[image + 1];
+                const auto idx  = static_cast<uint32_t>(base + ver);
+                if (idx >= end)
+                {
+                    return;
+                }
+                enqueue_pass(producer_lookup_table.img_version_producers[idx]);
+            };
+
+            auto enqueue_buffer_producer = [&](resource_version_handle version)
+            {
+                if (version == invalid_resource_version)
+                {
+                    return;
+                }
+                const auto buffer   = unpack_to_resource(version);
+                const auto ver = unpack_to_version(version);
+                if (buffer >= buffer_count)
+                {
+                    return;
+                }
+                const auto base = producer_lookup_table.buf_version_offsets[buffer];
+                const auto end  = producer_lookup_table.buf_version_offsets[buffer + 1];
+                const auto idx  = static_cast<uint32_t>(base + ver);
+                if (idx >= end)
+                {
+                    return;
+                }
+                enqueue_pass(producer_lookup_table.buf_version_producers[idx]);
+            };
+
             // Seed roots from declared outputs (images/buffers)
             for (const auto output_image : output_table.image_outputs)
             {
-                if (output_image < producer_lookup_table.img_proc_map.size())
+                if (output_image < image_count)
                 {
-                    enqueue_pass(producer_lookup_table.img_proc_map[output_image]);
+                    enqueue_image_producer(producer_lookup_table.img_latest[output_image]);
                 }
             }
             for (const auto output_buffer : output_table.buffer_outputs)
             {
-                if (output_buffer < producer_lookup_table.buf_proc_map.size())
+                if (output_buffer < buffer_count)
                 {
-                    enqueue_pass(producer_lookup_table.buf_proc_map[output_buffer]);
+                    enqueue_buffer_producer(producer_lookup_table.buf_latest[output_buffer]);
                 }
             }
 
@@ -246,11 +395,7 @@ namespace render_graph
                     const auto read_length = image_read_deps.lengthes[current_pass];
                     for (auto j = read_begin; j < read_begin + read_length; j++)
                     {
-                        const auto image = image_read_deps.read_list[j];
-                        if (image < producer_lookup_table.img_proc_map.size())
-                        {
-                            enqueue_pass(producer_lookup_table.img_proc_map[image]);
-                        }
+                        enqueue_image_producer(img_ver_read_handles[j]);
                     }
                 }
 
@@ -260,11 +405,7 @@ namespace render_graph
                     const auto read_length = buffer_read_deps.lengthes[current_pass];
                     for (auto j = read_begin; j < read_begin + read_length; j++)
                     {
-                        const auto buffer = buffer_read_deps.read_list[j];
-                        if (buffer < producer_lookup_table.buf_proc_map.size())
-                        {
-                            enqueue_pass(producer_lookup_table.buf_proc_map[buffer]);
-                        }
+                        enqueue_buffer_producer(buf_ver_read_handles[j]);
                     }
                 }
             }

@@ -22,35 +22,119 @@ namespace render_graph::unit_test
             resource_handle buf_b1 = 0;
             resource_handle buf_b3 = 0;
 
-            // Expected producer maps (indexed by handle)
-            std::vector<pass_handle> expected_img_proc;
-            std::vector<pass_handle> expected_buf_proc;
+            // Expected version->producer map (by handle, then by version index)
+            std::vector<std::vector<pass_handle>> expected_img_versions;
+            std::vector<std::vector<pass_handle>> expected_buf_versions;
+
+            // Flattened expected tables (match version_producer_map layout)
+            std::vector<uint32_t> expected_img_version_offsets;
+            std::vector<pass_handle> expected_img_version_producers;
+            std::vector<resource_version_handle> expected_img_latest;
+
+            std::vector<uint32_t> expected_buf_version_offsets;
+            std::vector<pass_handle> expected_buf_version_producers;
+            std::vector<resource_version_handle> expected_buf_latest;
 
             static pass_handle invalid_pass()  { return std::numeric_limits<pass_handle>::max(); }
 
             void reset()
             {
                 *this = test_state_t{};
-                expected_img_proc.clear();
-                expected_buf_proc.clear();
+                expected_img_versions.clear();
+                expected_buf_versions.clear();
+                expected_img_version_offsets.clear();
+                expected_img_version_producers.clear();
+                expected_img_latest.clear();
+                expected_buf_version_offsets.clear();
+                expected_buf_version_producers.clear();
+                expected_buf_latest.clear();
             }
 
-            void expect_img(resource_handle image, pass_handle producer)
+            void record_img_write(resource_handle image, pass_handle producer)
             {
-                if (expected_img_proc.size() <= image)
+                if (expected_img_versions.size() <= image)
                 {
-                    expected_img_proc.resize(static_cast<size_t>(image) + 1, invalid_pass());
+                    expected_img_versions.resize(static_cast<size_t>(image) + 1);
                 }
-                expected_img_proc[image] = producer;
+                expected_img_versions[image].push_back(producer);
             }
 
-            void expect_buf(resource_handle buffer, pass_handle producer)
+            void record_buf_write(resource_handle buffer, pass_handle producer)
             {
-                if (expected_buf_proc.size() <= buffer)
+                if (expected_buf_versions.size() <= buffer)
                 {
-                    expected_buf_proc.resize(static_cast<size_t>(buffer) + 1, invalid_pass());
+                    expected_buf_versions.resize(static_cast<size_t>(buffer) + 1);
                 }
-                expected_buf_proc[buffer] = producer;
+                expected_buf_versions[buffer].push_back(producer);
+            }
+
+            void build_expected_flat(resource_handle image_count, resource_handle buffer_count)
+            {
+                // Ensure storage exists for every handle in system meta table.
+                if (expected_img_versions.size() < image_count)
+                {
+                    expected_img_versions.resize(image_count);
+                }
+                if (expected_buf_versions.size() < buffer_count)
+                {
+                    expected_buf_versions.resize(buffer_count);
+                }
+
+                // Images
+                expected_img_version_offsets.assign(static_cast<size_t>(image_count) + 1, 0);
+                expected_img_latest.assign(image_count, invalid_resource_version);
+                {
+                    uint32_t running = 0;
+                    for (resource_handle image_handle = 0; image_handle < image_count; image_handle++)
+                    {
+                        expected_img_version_offsets[image_handle] = running;
+                        const auto count = static_cast<uint32_t>(expected_img_versions[image_handle].size());
+                        if (count > 0)
+                        {
+                            expected_img_latest[image_handle] = pack(image_handle, static_cast<version_handle>(count - 1));
+                        }
+                        running += count;
+                    }
+                    expected_img_version_offsets[image_count] = running;
+                    expected_img_version_producers.assign(running, invalid_pass());
+                    for (resource_handle image_handle = 0; image_handle < image_count; image_handle++)
+                    {
+                        const auto base = expected_img_version_offsets[image_handle];
+                        const auto& per_version = expected_img_versions[image_handle];
+                        for (size_t ver = 0; ver < per_version.size(); ver++)
+                        {
+                            expected_img_version_producers[static_cast<size_t>(base) + ver] = per_version[ver];
+                        }
+                    }
+                }
+
+                // Buffers
+                expected_buf_version_offsets.assign(static_cast<size_t>(buffer_count) + 1, 0);
+                expected_buf_latest.assign(buffer_count, invalid_resource_version);
+                {
+                    uint32_t running = 0;
+                    for (resource_handle buffer_handle = 0; buffer_handle < buffer_count; buffer_handle++)
+                    {
+                        expected_buf_version_offsets[buffer_handle] = running;
+                        const auto count = static_cast<uint32_t>(expected_buf_versions[buffer_handle].size());
+                        if (count > 0)
+                        {
+                            expected_buf_latest[buffer_handle] = pack(buffer_handle, static_cast<version_handle>(count - 1));
+                        }
+                        running += count;
+                    }
+                    expected_buf_version_offsets[buffer_count] = running;
+                    expected_buf_version_producers.assign(running, invalid_pass());
+                    for (resource_handle buffer_handle = 0; buffer_handle < buffer_count; buffer_handle++)
+                    {
+                        const auto base = expected_buf_version_offsets[buffer_handle];
+                        const auto& per_version = expected_buf_versions[buffer_handle];
+                        for (size_t ver = 0; ver < per_version.size(); ver++)
+                        {
+                            expected_buf_version_producers[static_cast<size_t>(base) + ver] = per_version[ver];
+                        }
+                    }
+                }
             }
         };
 
@@ -80,7 +164,7 @@ namespace render_graph::unit_test
                 .imported      = false,
             });
             ctx.write_image(state.img_a1, image_usage::COLOR_ATTACHMENT);
-            state.expect_img(state.img_a1, ctx.current_pass);
+            state.record_img_write(state.img_a1, ctx.current_pass);
 
             state.img_a2 = ctx.create_image(image_info{
                 .name          = "img_a2",
@@ -95,7 +179,7 @@ namespace render_graph::unit_test
                 .imported      = false,
             });
             ctx.write_image(state.img_a2, image_usage::COLOR_ATTACHMENT);
-            state.expect_img(state.img_a2, ctx.current_pass);
+            state.record_img_write(state.img_a2, ctx.current_pass);
 
             state.buf_b1 = ctx.create_buffer(buffer_info{
                 .name     = "buf_b1",
@@ -104,7 +188,7 @@ namespace render_graph::unit_test
                 .imported = false,
             });
             ctx.write_buffer(state.buf_b1, buffer_usage::STORAGE_BUFFER);
-            state.expect_buf(state.buf_b1, ctx.current_pass);
+            state.record_buf_write(state.buf_b1, ctx.current_pass);
         }
 
         // Pass 1: read a1, write b2, rewrite b1 (overwrite producer)
@@ -127,12 +211,12 @@ namespace render_graph::unit_test
                 .imported      = false,
             });
             ctx.write_image(state.img_b2, image_usage::COLOR_ATTACHMENT);
-            state.expect_img(state.img_b2, ctx.current_pass);
+            state.record_img_write(state.img_b2, ctx.current_pass);
 
             // Overwrite producer for buf_b1
             ctx.read_buffer(state.buf_b1, buffer_usage::STORAGE_BUFFER);
             ctx.write_buffer(state.buf_b1, buffer_usage::STORAGE_BUFFER);
-            state.expect_buf(state.buf_b1, ctx.current_pass);
+            state.record_buf_write(state.buf_b1, ctx.current_pass);
         }
 
         // Pass 2: read b2 & b1, rewrite a2 (overwrite producer), create/write b3
@@ -145,7 +229,7 @@ namespace render_graph::unit_test
 
             // Rewrite producer for img_a2
             ctx.write_image(state.img_a2, image_usage::COLOR_ATTACHMENT);
-            state.expect_img(state.img_a2, ctx.current_pass);
+            state.record_img_write(state.img_a2, ctx.current_pass);
 
             state.buf_b3 = ctx.create_buffer(buffer_info{
                 .name     = "buf_b3",
@@ -154,7 +238,7 @@ namespace render_graph::unit_test
                 .imported = false,
             });
             ctx.write_buffer(state.buf_b3, buffer_usage::STORAGE_BUFFER);
-            state.expect_buf(state.buf_b3, ctx.current_pass);
+            state.record_buf_write(state.buf_b3, ctx.current_pass);
         }
 
         // Pass 3: imported external image that is only read (no write) -> producer should remain invalid
@@ -176,7 +260,7 @@ namespace render_graph::unit_test
             });
 
             ctx.read_image(state.img_external_only, image_usage::SAMPLED);
-            state.expect_img(state.img_external_only, state.invalid_pass());
+            // no write recorded -> expected producer table will remain invalid for this handle
         }
 
         // Pass 4: read a2 & external, write imported swapchain
@@ -201,7 +285,7 @@ namespace render_graph::unit_test
             });
 
             ctx.write_image(state.img_swapchain, image_usage::COLOR_ATTACHMENT);
-            state.expect_img(state.img_swapchain, ctx.current_pass);
+            state.record_img_write(state.img_swapchain, ctx.current_pass);
         }
     } // namespace
 
@@ -220,9 +304,14 @@ namespace render_graph::unit_test
 
         system.compile();
 
+        // Build the expected flat tables using the same shapes as the system.
+        state.build_expected_flat(static_cast<resource_handle>(system.meta_table.image_metas.names.size()),
+                     static_cast<resource_handle>(system.meta_table.buffer_metas.names.size()));
+
         // Set a breakpoint here and inspect:
-        // - system.img_proc_map / system.buf_proc_map
-        // - test_state().expected_img_proc / expected_buf_proc
+        // - system.producer_lookup_table.img_version_offsets / img_version_producers / img_latest
+        // - system.producer_lookup_table.buf_version_offsets / buf_version_producers / buf_latest
+        // - test_state().expected_*_version_offsets / expected_*_version_producers / expected_*_latest
         // Also pay attention to rewritten resources (img_a2, buf_b1).
         (void)system;
     }

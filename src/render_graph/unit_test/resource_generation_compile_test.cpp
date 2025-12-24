@@ -11,26 +11,26 @@ namespace render_graph::unit_test
         struct expected_stream_t
         {
             // Mirrors the packed dependency lists.
-            std::vector<resource_handle> image_read_handles;
-            std::vector<resource_handle> image_read_gens;
-            std::vector<resource_handle> image_write_handles;
-            std::vector<resource_handle> image_write_gens;
+            std::vector<resource_version_handle> image_read_handles;
+            std::vector<resource_version_handle> image_read_gens;
+            std::vector<resource_version_handle> image_write_handles;
+            std::vector<resource_version_handle> image_write_gens;
 
-            std::vector<resource_handle> buffer_read_handles;
-            std::vector<resource_handle> buffer_read_gens;
-            std::vector<resource_handle> buffer_write_handles;
-            std::vector<resource_handle> buffer_write_gens;
+            std::vector<resource_version_handle> buffer_read_handles;
+            std::vector<resource_version_handle> buffer_read_gens;
+            std::vector<resource_version_handle> buffer_write_handles;
+            std::vector<resource_version_handle> buffer_write_gens;
 
             // Tracks next generation id to assign on write.
-            std::vector<resource_handle> image_next_gen;
-            std::vector<resource_handle> buffer_next_gen;
+            std::vector<resource_version_handle> image_next_gen;
+            std::vector<resource_version_handle> buffer_next_gen;
 
             void reset()
             {
                 *this = expected_stream_t{};
             }
 
-            void ensure_image(resource_handle image)
+            void ensure_image(resource_version_handle image)
             {
                 if (image_next_gen.size() <= image)
                 {
@@ -38,7 +38,7 @@ namespace render_graph::unit_test
                 }
             }
 
-            void ensure_buffer(resource_handle buffer)
+            void ensure_buffer(resource_version_handle buffer)
             {
                 if (buffer_next_gen.size() <= buffer)
                 {
@@ -46,7 +46,7 @@ namespace render_graph::unit_test
                 }
             }
 
-            void record_image_read(resource_handle image)
+            void record_image_read(resource_version_handle image)
             {
                 ensure_image(image);
                 const auto next = image_next_gen[image];
@@ -55,7 +55,7 @@ namespace render_graph::unit_test
                 image_read_gens.push_back(gen);
             }
 
-            void record_image_write(resource_handle image)
+            void record_image_write(resource_version_handle image)
             {
                 ensure_image(image);
                 const auto gen = image_next_gen[image];
@@ -64,7 +64,7 @@ namespace render_graph::unit_test
                 image_next_gen[image] = gen + 1;
             }
 
-            void record_buffer_read(resource_handle buffer)
+            void record_buffer_read(resource_version_handle buffer)
             {
                 ensure_buffer(buffer);
                 const auto next = buffer_next_gen[buffer];
@@ -73,7 +73,7 @@ namespace render_graph::unit_test
                 buffer_read_gens.push_back(gen);
             }
 
-            void record_buffer_write(resource_handle buffer)
+            void record_buffer_write(resource_version_handle buffer)
             {
                 ensure_buffer(buffer);
                 const auto gen = buffer_next_gen[buffer];
@@ -86,14 +86,14 @@ namespace render_graph::unit_test
         struct test_state_t
         {
             // Images
-            resource_handle img_g0 = 0;
-            resource_handle img_g1 = 0;
-            resource_handle img_l0 = 0;
-            resource_handle img_external = 0; // imported, only read initially
+            resource_version_handle img_g0 = 0;
+            resource_version_handle img_g1 = 0;
+            resource_version_handle img_l0 = 0;
+            resource_version_handle img_external = 0; // imported, only read initially
 
             // Buffers
-            resource_handle buf_b0 = 0;
-            resource_handle buf_b1 = 0;
+            resource_version_handle buf_b0 = 0;
+            resource_version_handle buf_b1 = 0;
 
             expected_stream_t expected;
 

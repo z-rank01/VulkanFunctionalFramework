@@ -6,12 +6,8 @@
 #include "backend.h"
 #include "resource.h"
 
-
 namespace render_graph
 {
-    using pass_handle     = uint32_t;
-    using resource_handle = uint32_t;
-
     // resource dependency
 
     // one dimesion array to represent the read resource of each pass
@@ -20,7 +16,6 @@ namespace render_graph
         std::vector<resource_handle> read_list;
         std::vector<resource_handle> begins;
         std::vector<resource_handle> lengthes;
-        std::vector<resource_handle> generations;
         std::vector<image_usage> image_usages;
         std::vector<buffer_usage> buffer_usages;
     };
@@ -31,7 +26,6 @@ namespace render_graph
         std::vector<resource_handle> write_list;
         std::vector<resource_handle> begins;
         std::vector<resource_handle> lengthes;
-        std::vector<resource_handle> generations;
         std::vector<image_usage> image_usages;
         std::vector<buffer_usage> buffer_usages;
     };
