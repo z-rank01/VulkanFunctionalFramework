@@ -9,6 +9,7 @@ add_library(render_graph_unit_tests OBJECT
     culling_compile_test.cpp
     validation_compile_test.cpp
     dag_compile_test.cpp
+    dag_cycle_compile_test.cpp
 )
 
 target_link_libraries(render_graph_unit_tests

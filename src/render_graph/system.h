@@ -35,6 +35,7 @@ namespace render_graph
         graph_topology graph;
         directed_acyclic_graph dag;
         std::vector<bool> active_pass_flags;
+        std::vector<pass_handle> sorted_passes;
 
         // backend related
         backend* backend = nullptr;
@@ -58,7 +59,7 @@ namespace render_graph
 
         void compile()
         {
-            const auto pass_count = graph.passes.size();
+            const auto pass_count   = graph.passes.size();
             const auto invalid_pass = std::numeric_limits<pass_handle>::max();
 
             // Reset dependency storage
@@ -147,8 +148,8 @@ namespace render_graph
                     const auto read_length = image_read_deps.lengthes[current_pass];
                     for (auto j = read_begin; j < read_begin + read_length; j++)
                     {
-                        const auto image = image_read_deps.read_list[j];
-                        const auto next_version  = (image < image_next_versions.size()) ? image_next_versions[image] : 0;
+                        const auto image        = image_read_deps.read_list[j];
+                        const auto next_version = (image < image_next_versions.size()) ? image_next_versions[image] : 0;
                         if (next_version == 0)
                         {
                             // Unwritten (or imported-only) at this point; treat as having no producer.
@@ -157,7 +158,7 @@ namespace render_graph
                         }
                         else
                         {
-                            const auto version = static_cast<version_handle>(next_version - 1);
+                            const auto version      = static_cast<version_handle>(next_version - 1);
                             img_ver_read_handles[j] = pack(image, version);
                         }
                     }
@@ -175,8 +176,8 @@ namespace render_graph
                             img_ver_write_handles[j] = invalid_resource_version;
                             continue;
                         }
-                        const auto next_version = image_next_versions[image];
-                        img_ver_write_handles[j] = pack(image, next_version);
+                        const auto next_version    = image_next_versions[image];
+                        img_ver_write_handles[j]   = pack(image, next_version);
                         image_next_versions[image] = static_cast<version_handle>(next_version + 1);
                     }
                 }
@@ -187,15 +188,15 @@ namespace render_graph
                     const auto read_length = buffer_read_deps.lengthes[current_pass];
                     for (auto j = read_begin; j < read_begin + read_length; j++)
                     {
-                        const auto buffer = buffer_read_deps.read_list[j];
-                        const auto next_version   = (buffer < buffer_next_versions.size()) ? buffer_next_versions[buffer] : 0;
+                        const auto buffer       = buffer_read_deps.read_list[j];
+                        const auto next_version = (buffer < buffer_next_versions.size()) ? buffer_next_versions[buffer] : 0;
                         if (next_version == 0)
                         {
                             buf_ver_read_handles[j] = invalid_resource_version;
                         }
                         else
                         {
-                            const auto version = static_cast<version_handle>(next_version - 1);
+                            const auto version      = static_cast<version_handle>(next_version - 1);
                             buf_ver_read_handles[j] = pack(buffer, version);
                         }
                     }
@@ -213,8 +214,8 @@ namespace render_graph
                             buf_ver_write_handles[j] = invalid_resource_version;
                             continue;
                         }
-                        const auto next_version = buffer_next_versions[buffer];
-                        buf_ver_write_handles[j] = pack(buffer, next_version);
+                        const auto next_version      = buffer_next_versions[buffer];
+                        buf_ver_write_handles[j]     = pack(buffer, next_version);
                         buffer_next_versions[buffer] = static_cast<version_handle>(next_version + 1);
                     }
                 }
@@ -235,7 +236,7 @@ namespace render_graph
                 for (resource_handle image = 0; image < image_count; image++)
                 {
                     producer_lookup_table.img_version_offsets[image] = running;
-                    const auto version = image_next_versions[image];
+                    const auto version                               = image_next_versions[image];
                     if (version > 0)
                     {
                         producer_lookup_table.latest_img[image] = pack(image, static_cast<version_handle>(version - 1));
@@ -254,7 +255,7 @@ namespace render_graph
                 for (resource_handle buffer = 0; buffer < buffer_count; buffer++)
                 {
                     producer_lookup_table.buf_version_offsets[buffer] = running;
-                    const auto version = buffer_next_versions[buffer];
+                    const auto version                                = buffer_next_versions[buffer];
                     if (version > 0)
                     {
                         producer_lookup_table.latest_buf[buffer] = pack(buffer, static_cast<version_handle>(version - 1));
@@ -273,9 +274,9 @@ namespace render_graph
                 const auto length       = image_write_deps.lengthes[current_pass];
                 for (auto j = begin; j < begin + length; j++)
                 {
-                    const auto image_version_handle   = img_ver_write_handles[j];
-                    const auto image   = unpack_to_resource(image_version_handle);
-                    const auto version = unpack_to_version(image_version_handle);
+                    const auto image_version_handle = img_ver_write_handles[j];
+                    const auto image                = unpack_to_resource(image_version_handle);
+                    const auto version              = unpack_to_version(image_version_handle);
                     if (image >= image_count)
                     {
                         continue;
@@ -298,9 +299,9 @@ namespace render_graph
                 const auto length       = buffer_write_deps.lengthes[current_pass];
                 for (auto j = begin; j < begin + length; j++)
                 {
-                    const auto buffer_version_handle   = buf_ver_write_handles[j];
-                    const auto buffer   = unpack_to_resource(buffer_version_handle);
-                    const auto version = unpack_to_version(buffer_version_handle);
+                    const auto buffer_version_handle = buf_ver_write_handles[j];
+                    const auto buffer                = unpack_to_resource(buffer_version_handle);
+                    const auto version               = unpack_to_version(buffer_version_handle);
                     if (buffer >= buffer_count)
                     {
                         continue;
@@ -341,8 +342,8 @@ namespace render_graph
                 {
                     return;
                 }
-                const auto image   = unpack_to_resource(version);
-                const auto ver = unpack_to_version(version);
+                const auto image = unpack_to_resource(version);
+                const auto ver   = unpack_to_version(version);
                 if (image >= image_count)
                 {
                     return;
@@ -363,8 +364,8 @@ namespace render_graph
                 {
                     return;
                 }
-                const auto buffer   = unpack_to_resource(version);
-                const auto ver = unpack_to_version(version);
+                const auto buffer = unpack_to_resource(version);
+                const auto ver    = unpack_to_version(version);
                 if (buffer >= buffer_count)
                 {
                     return;
@@ -472,14 +473,15 @@ namespace render_graph
             // - Read-before-write on non-imported resources (producer == invalid_pass)
             // - Out-of-range resource handles in deps lists
             // - Empty output set (no roots) -> everything will be culled
-            
+
             // check outputs
             assert((!output_table.image_outputs.empty() || !output_table.buffer_outputs.empty()) && "Error: No outputs declared");
 
             // check read-before-write issues and out-of-range handles
             for (size_t i = 0; i < pass_count; i++)
             {
-                if (!active_pass_flags[i]) continue;
+                if (!active_pass_flags[i])
+                    continue;
 
                 const auto current_pass = graph.passes[i];
                 // image reads
@@ -649,25 +651,49 @@ namespace render_graph
             for (pass_handle from = 0; from < pass_count; from++)
             {
                 dag.adjacency_begins[from] = running;
-                const auto& list = outgoing[from];
+                const auto& list           = outgoing[from];
                 dag.adjacency_list.insert(dag.adjacency_list.end(), list.begin(), list.end());
                 running = static_cast<uint32_t>(dag.adjacency_list.size());
             }
             dag.adjacency_begins[pass_count] = running;
 
+            // Step G: Scheduling / Topological Order
+            // Compute execution order for live passes (Kahn's algorithm).
+            // This also validates that there are no cycles.
 
-            // Step G: Validate DAG (Not yet implemented)
-            // Validate constructed DAG:
-            // - No cycles (would block scheduling)
-            // - All live passes reachable from roots (should be guaranteed by culling)
+            sorted_passes.clear();
+            sorted_passes.reserve(pass_count);
+            std::vector<uint32_t> in_degrees_copy = dag.in_degrees;
+            std::queue<pass_handle> zero_in_degree_queue;
+            for (pass_handle pass = 0; pass < pass_count; pass++)
+            {
+                if (active_pass_flags[pass] && in_degrees_copy[pass] == 0)
+                {
+                    zero_in_degree_queue.push(pass);
+                }
+            }
 
-            // Step G: Scheduling / Topological Order (Not yet implemented)
-            // Compute execution order for live passes (Kahn / DFS topo sort).
-            // - If cycle detected => error
-            // Store:
-            // - a vector of sorted live passes
-            // Future:
-            // - parallel layers (no-dependency groups)
+            while (!zero_in_degree_queue.empty())
+            {
+                const auto current_pass = zero_in_degree_queue.front();
+                zero_in_degree_queue.pop();
+
+                sorted_passes.push_back(current_pass);
+
+                const auto begin = dag.adjacency_begins[current_pass];
+                const auto end   = dag.adjacency_begins[current_pass + 1];
+                for (auto j = begin; j < end; j++)
+                {
+                    const auto dst_pass = dag.adjacency_list[j];
+                    in_degrees_copy[dst_pass]--;
+                    if (in_degrees_copy[dst_pass] == 0)
+                    {
+                        zero_in_degree_queue.push(dst_pass);
+                    }
+                }
+            }
+            const size_t active_pass_count = static_cast<size_t>(std::count(active_pass_flags.begin(), active_pass_flags.end(), true));
+            assert(sorted_passes.size() == active_pass_count && "Error: Cycle detected in render graph!");
 
             // Step H: Lifetime Analysis & Aliasing (Not yet implemented)
             // For each resource version, compute first/last use across the scheduled pass order.
@@ -705,6 +731,55 @@ namespace render_graph
             {
                 backend->destroy_resources();
             }
+        }
+
+        // Kahn-based cycle validation for a pass dependency DAG.
+        // NOTE: This is primarily for debug validation / unit tests.
+        static void assert_no_cycles(const directed_acyclic_graph& dag, const std::vector<bool>& active_pass_flags)
+        {
+            const auto pass_count = active_pass_flags.size();
+            if (dag.in_degrees.size() != pass_count || dag.adjacency_begins.size() != pass_count + 1)
+            {
+                assert(false && "Error: DAG arrays shape mismatch!");
+            }
+
+            std::vector<uint32_t> in_degrees_copy = dag.in_degrees;
+            std::queue<pass_handle> zero_in_degree_queue;
+
+            for (pass_handle pass = 0; pass < pass_count; pass++)
+            {
+                if (active_pass_flags[pass] && in_degrees_copy[pass] == 0)
+                {
+                    zero_in_degree_queue.push(pass);
+                }
+            }
+
+            size_t visited = 0;
+            while (!zero_in_degree_queue.empty())
+            {
+                const auto current_pass = zero_in_degree_queue.front();
+                zero_in_degree_queue.pop();
+                visited++;
+
+                const auto begin = dag.adjacency_begins[current_pass];
+                const auto end   = dag.adjacency_begins[current_pass + 1];
+                for (auto j = begin; j < end; j++)
+                {
+                    const auto dst_pass = dag.adjacency_list[j];
+                    if (!active_pass_flags[dst_pass])
+                    {
+                        continue;
+                    }
+                    in_degrees_copy[dst_pass]--;
+                    if (in_degrees_copy[dst_pass] == 0)
+                    {
+                        zero_in_degree_queue.push(dst_pass);
+                    }
+                }
+            }
+
+            const size_t active_pass_count = static_cast<size_t>(std::count(active_pass_flags.begin(), active_pass_flags.end(), true));
+            assert(visited == active_pass_count && "Error: Cycle detected in render graph!");
         }
     };
 
