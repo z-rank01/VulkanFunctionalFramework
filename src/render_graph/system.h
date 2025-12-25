@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <limits>
 #include <queue>
 #include <vector>
@@ -32,6 +33,7 @@ namespace render_graph
 
         // pass related
         graph_topology graph;
+        directed_acyclic_graph dag;
         std::vector<bool> active_pass_flags;
 
         // backend related
@@ -227,7 +229,7 @@ namespace render_graph
 
             // Build image offsets + latest
             producer_lookup_table.img_version_offsets.assign(static_cast<size_t>(image_count) + 1, 0);
-            producer_lookup_table.img_latest.assign(image_count, invalid_resource_version);
+            producer_lookup_table.latest_img.assign(image_count, invalid_resource_version);
             {
                 uint32_t running = 0;
                 for (resource_handle image = 0; image < image_count; image++)
@@ -236,7 +238,7 @@ namespace render_graph
                     const auto version = image_next_versions[image];
                     if (version > 0)
                     {
-                        producer_lookup_table.img_latest[image] = pack(image, static_cast<version_handle>(version - 1));
+                        producer_lookup_table.latest_img[image] = pack(image, static_cast<version_handle>(version - 1));
                     }
                     running = (running + static_cast<uint32_t>(version));
                 }
@@ -246,7 +248,7 @@ namespace render_graph
 
             // Build buffer offsets + latest
             producer_lookup_table.buf_version_offsets.assign(static_cast<size_t>(buffer_count) + 1, 0);
-            producer_lookup_table.buf_latest.assign(buffer_count, invalid_resource_version);
+            producer_lookup_table.latest_buf.assign(buffer_count, invalid_resource_version);
             {
                 uint32_t running = 0;
                 for (resource_handle buffer = 0; buffer < buffer_count; buffer++)
@@ -255,7 +257,7 @@ namespace render_graph
                     const auto version = buffer_next_versions[buffer];
                     if (version > 0)
                     {
-                        producer_lookup_table.buf_latest[buffer] = pack(buffer, static_cast<version_handle>(version - 1));
+                        producer_lookup_table.latest_buf[buffer] = pack(buffer, static_cast<version_handle>(version - 1));
                     }
                     running = (running + static_cast<uint32_t>(version));
                 }
@@ -317,7 +319,7 @@ namespace render_graph
             // Analyze dependencies and mark passes as active/inactive
 
             active_pass_flags.assign(pass_count, false);
-            std::queue<pass_handle> worklist;
+            std::queue<pass_handle> culling_worklist;
             // invalid_pass is defined above for producer map.
 
             auto enqueue_pass = [&](pass_handle pass)
@@ -329,7 +331,7 @@ namespace render_graph
                 if (!active_pass_flags[pass])
                 {
                     active_pass_flags[pass] = true;
-                    worklist.push(pass);
+                    culling_worklist.push(pass);
                 }
             };
 
@@ -426,22 +428,22 @@ namespace render_graph
             {
                 if (output_image < image_count)
                 {
-                    enqueue_image_producer(producer_lookup_table.img_latest[output_image]);
+                    enqueue_image_producer(producer_lookup_table.latest_img[output_image]);
                 }
             }
             for (const auto output_buffer : output_table.buffer_outputs)
             {
                 if (output_buffer < buffer_count)
                 {
-                    enqueue_buffer_producer(producer_lookup_table.buf_latest[output_buffer]);
+                    enqueue_buffer_producer(producer_lookup_table.latest_buf[output_buffer]);
                 }
             }
 
             // Reverse traversal: if a live pass reads a resource, its producer must be live.
-            while (!worklist.empty())
+            while (!culling_worklist.empty())
             {
-                const auto current_pass = worklist.front();
-                worklist.pop();
+                const auto current_pass = culling_worklist.front();
+                culling_worklist.pop();
 
                 // image read dependencies
                 {
@@ -565,6 +567,94 @@ namespace render_graph
             // Output:
             // - adjacency list (or CSR) for passes
             // - in-degree counts for topo sort
+
+            // Forward adjacency (CSR): producer -> consumer.
+            // We build edges for all active passes (already culled from declared outputs).
+            std::vector<std::vector<pass_handle>> outgoing(pass_count);
+            auto add_edge = [&](pass_handle from, pass_handle to)
+            {
+                if (from == invalid_pass || to == invalid_pass)
+                {
+                    return;
+                }
+                if (from >= pass_count || to >= pass_count)
+                {
+                    return;
+                }
+                if (from == to)
+                {
+                    return;
+                }
+                if (!active_pass_flags[from] || !active_pass_flags[to])
+                {
+                    return;
+                }
+                outgoing[from].push_back(to);
+            };
+
+            for (size_t i = 0; i < pass_count; i++)
+            {
+                const auto consumer_pass = graph.passes[i];
+                if (!active_pass_flags[consumer_pass])
+                {
+                    continue;
+                }
+
+                // image read dependencies: producer(img_ver_read) -> consumer
+                {
+                    const auto read_begin  = image_read_deps.begins[consumer_pass];
+                    const auto read_length = image_read_deps.lengthes[consumer_pass];
+                    for (auto j = read_begin; j < read_begin + read_length; j++)
+                    {
+                        const auto producer = get_image_producer(img_ver_read_handles[j]);
+                        add_edge(producer, consumer_pass);
+                    }
+                }
+
+                // buffer read dependencies: producer(buf_ver_read) -> consumer
+                {
+                    const auto read_begin  = buffer_read_deps.begins[consumer_pass];
+                    const auto read_length = buffer_read_deps.lengthes[consumer_pass];
+                    for (auto j = read_begin; j < read_begin + read_length; j++)
+                    {
+                        const auto producer = get_buffer_producer(buf_ver_read_handles[j]);
+                        add_edge(producer, consumer_pass);
+                    }
+                }
+            }
+
+            dag.adjacency_list.clear();
+            dag.adjacency_begins.assign(static_cast<size_t>(pass_count) + 1, 0);
+            dag.in_degrees.assign(pass_count, 0);
+            dag.out_degrees.assign(pass_count, 0);
+
+            // De-duplicate edges per producer and compute degrees.
+            for (pass_handle pass = 0; pass < pass_count; pass++)
+            {
+                auto& list = outgoing[pass];
+                std::sort(list.begin(), list.end());
+                list.erase(std::unique(list.begin(), list.end()), list.end());
+            }
+            for (pass_handle from = 0; from < pass_count; from++)
+            {
+                dag.out_degrees[from] = static_cast<uint32_t>(outgoing[from].size());
+                for (const auto dst_pass : outgoing[from])
+                {
+                    dag.in_degrees[dst_pass]++;
+                }
+            }
+
+            // Build CSR arrays.
+            uint32_t running = 0;
+            for (pass_handle from = 0; from < pass_count; from++)
+            {
+                dag.adjacency_begins[from] = running;
+                const auto& list = outgoing[from];
+                dag.adjacency_list.insert(dag.adjacency_list.end(), list.begin(), list.end());
+                running = static_cast<uint32_t>(dag.adjacency_list.size());
+            }
+            dag.adjacency_begins[pass_count] = running;
+
 
             // Step G: Validate DAG (Not yet implemented)
             // Validate constructed DAG:

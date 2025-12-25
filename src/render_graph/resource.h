@@ -169,21 +169,21 @@ namespace render_graph
         // Images
         std::vector<uint32_t> img_version_offsets;   // size = image_count + 1
         std::vector<pass_handle> img_version_producers; // size = total image versions
-        std::vector<resource_version_handle> img_latest; // size = image_count, pack(h, latest_version)
+        std::vector<resource_version_handle> latest_img; // size = image_count, pack(h, latest_version)
 
         // Buffers
         std::vector<uint32_t> buf_version_offsets;   // size = buffer_count + 1
         std::vector<pass_handle> buf_version_producers; // size = total buffer versions
-        std::vector<resource_version_handle> buf_latest; // size = buffer_count, pack(h, latest_version)
+        std::vector<resource_version_handle> latest_buf; // size = buffer_count, pack(h, latest_version)
 
         void clear()
         {
             img_version_offsets.clear();
             img_version_producers.clear();
-            img_latest.clear();
+            latest_img.clear();
             buf_version_offsets.clear();
             buf_version_producers.clear();
-            buf_latest.clear();
+            latest_buf.clear();
         }
     };
 

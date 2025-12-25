@@ -114,4 +114,12 @@ namespace render_graph
         std::vector<pass_execute_func> execute_funcs;
     };
 
+    struct directed_acyclic_graph
+    {
+        std::vector<pass_handle> adjacency_list;
+        std::vector<uint32_t> adjacency_begins;
+        std::vector<uint32_t> in_degrees;
+        std::vector<uint32_t> out_degrees;
+    };
+
 }; // namespace render_graph

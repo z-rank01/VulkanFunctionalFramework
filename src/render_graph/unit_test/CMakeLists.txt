@@ -8,6 +8,7 @@ add_library(render_graph_unit_tests OBJECT
     resource_generation_compile_test.cpp
     culling_compile_test.cpp
     validation_compile_test.cpp
+    dag_compile_test.cpp
 )
 
 target_link_libraries(render_graph_unit_tests
