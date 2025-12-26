@@ -15,6 +15,7 @@
 #include "render_graph/unit_test/validation_compile_test.h"   // unit test
 #include "render_graph/unit_test/dag_compile_test.h"   // unit test
 #include "render_graph/unit_test/dag_cycle_compile_test.h"   // unit test
+#include "render_graph/unit_test/lifetime_aliasing_test.h"   // unit test
 
 int main()
 {
@@ -24,7 +25,8 @@ int main()
     // render_graph::unit_test::validation_compile_test();
     // render_graph::unit_test::culling_compile_test();
     // render_graph::unit_test::dag_compile_test();
-    render_graph::unit_test::dag_cycle_compile_test();
+    // render_graph::unit_test::dag_cycle_compile_test();
+    render_graph::unit_test::lifetime_aliasing_test();
     
     // std::cout << "Hello, World!" << '\n';
     // std::cout << "This is a Vulkan Sample" << '\n';

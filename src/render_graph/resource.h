@@ -95,6 +95,21 @@ namespace render_graph
             return handle;
         }
 
+        [[nodiscard]] bool is_compatible(resource_handle a, resource_handle b) const noexcept
+        {
+            const auto count = static_cast<resource_handle>(names.size());
+            if (a >= count || b >= count)
+            {
+                return false;
+            }
+
+            const auto& ea = extents[a];
+            const auto& eb = extents[b];
+            return formats[a] == formats[b] && ea.width == eb.width && ea.height == eb.height && ea.depth == eb.depth && usages[a] == usages[b] &&
+                   types[a] == types[b] && flags[a] == flags[b] && mip_levels[a] == mip_levels[b] && array_layers[a] == array_layers[b] &&
+                   sample_counts[a] == sample_counts[b];
+        }
+
         void clear()
         {
             names.clear();
@@ -121,7 +136,7 @@ namespace render_graph
         // Lifecycle / Graph properties
         std::vector<bool> is_imported;  // If true, handle is provided externally (backbuffer, etc.)
         std::vector<bool> is_transient; // If true, memory can be aliased/lazy allocated
-        
+
         // Helper to add a new buffer meta and return its resource index(not versioned)
         resource_handle add(const buffer_info& info)
         {
@@ -132,6 +147,16 @@ namespace render_graph
             is_imported.push_back(info.imported);
             is_transient.push_back(!info.imported);
             return handle;
+        }
+
+        [[nodiscard]] bool is_compatible(resource_handle a, resource_handle b) const noexcept
+        {
+            const auto count = static_cast<resource_handle>(names.size());
+            if (a >= count || b >= count)
+            {
+                return false;
+            }
+            return sizes[a] == sizes[b] && usages[a] == usages[b];
         }
 
         void clear()
@@ -167,13 +192,13 @@ namespace render_graph
     struct version_producer_map
     {
         // Images
-        std::vector<uint32_t> img_version_offsets;   // size = image_count + 1
-        std::vector<pass_handle> img_version_producers; // size = total image versions
+        std::vector<uint32_t> img_version_offsets;       // size = image_count + 1
+        std::vector<pass_handle> img_version_producers;  // size = total image versions
         std::vector<resource_version_handle> latest_img; // size = image_count, pack(h, latest_version)
 
         // Buffers
-        std::vector<uint32_t> buf_version_offsets;   // size = buffer_count + 1
-        std::vector<pass_handle> buf_version_producers; // size = total buffer versions
+        std::vector<uint32_t> buf_version_offsets;       // size = buffer_count + 1
+        std::vector<pass_handle> buf_version_producers;  // size = total buffer versions
         std::vector<resource_version_handle> latest_buf; // size = buffer_count, pack(h, latest_version)
 
         void clear()
@@ -191,6 +216,36 @@ namespace render_graph
     {
         std::vector<resource_handle> image_outputs;  // Indexed by image handle
         std::vector<resource_handle> buffer_outputs; // Indexed by buffer handle
+    };
+
+    struct resource_lifetime
+    {
+        std::vector<pass_handle> image_first_used_pass; // Indexed by resource handle
+        std::vector<pass_handle> image_last_used_pass;  // Indexed by resource handle
+        std::vector<pass_handle> buffer_first_used_pass; // Indexed by resource handle
+        std::vector<pass_handle> buffer_last_used_pass;  // Indexed by resource handle
+
+        void clear()
+        {
+            image_first_used_pass.clear();
+            image_last_used_pass.clear();
+        }
+    };
+
+    struct unique_resource_meta
+    {
+        std::vector<resource_handle> unique_image_meta;
+        std::vector<uint32_t> res_to_unique_img_idx; // Indexed by resource_handle
+        std::vector<resource_handle> unique_buffer_meta;
+        std::vector<uint32_t> res_to_unique_buf_idx; // Indexed by resource_handle
+
+        void clear()
+        {
+            unique_image_meta.clear();
+            unique_buffer_meta.clear();
+            res_to_unique_img_idx.clear();
+            res_to_unique_buf_idx.clear();
+        }
     };
 
 } // namespace render_graph
