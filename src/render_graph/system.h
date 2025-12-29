@@ -33,7 +33,7 @@ namespace render_graph
         output_table output_table;
 
         resource_lifetime resource_lifetimes;
-        unique_resource_meta unique_resource_metas;
+        physical_resource_meta physical_resource_metas;
 
         // pass related
         graph_topology graph;
@@ -715,10 +715,9 @@ namespace render_graph
             }
 
             resource_lifetimes.clear();
-            const uint32_t invalid_index = std::numeric_limits<uint32_t>::max();
-            resource_lifetimes.image_first_used_pass.assign(image_count, invalid_index);
+            resource_lifetimes.image_first_used_pass.assign(image_count, invalid_pass);
             resource_lifetimes.image_last_used_pass.assign(image_count, 0);
-            resource_lifetimes.buffer_first_used_pass.assign(buffer_count, invalid_index);
+            resource_lifetimes.buffer_first_used_pass.assign(buffer_count, invalid_pass);
             resource_lifetimes.buffer_last_used_pass.assign(buffer_count, 0);
 
             // 2. Compute Lifetimes (using execution indices)
@@ -729,7 +728,7 @@ namespace render_graph
                 auto update_lifetime = [&](std::vector<uint32_t>& firsts, std::vector<uint32_t>& lasts, resource_handle res, size_t count)
                 {
                     if (res >= count) return;
-                    if (firsts[res] == invalid_index)
+                    if (firsts[res] == invalid_pass)
                     {
                         firsts[res] = actual_pass_index;
                     }
@@ -776,7 +775,7 @@ namespace render_graph
 
             // 3. Aliasing (Greedy First-Fit)
             // Group resources that can share memory (transient & non-overlapping).
-            unique_resource_metas.clear();
+            physical_resource_metas.clear();
             
             auto is_overlapping = [](uint32_t start_a, uint32_t end_a, uint32_t start_b, uint32_t end_b)
             {
@@ -786,10 +785,10 @@ namespace render_graph
             // Images
             {
                 // Stores intervals for each unique resource: unique_id -> vector<{start, end}>
-                std::vector<std::vector<std::pair<uint32_t, uint32_t>>> unique_intervals;
+                std::vector<std::vector<std::pair<uint32_t, uint32_t>>> life_intervals;
                 
                 // Resize mapping table
-                unique_resource_metas.res_to_unique_img_idx.assign(image_count, invalid_resource);
+                physical_resource_metas.handle_to_physical_img_id.assign(image_count, invalid_resource);
 
                 for (resource_handle img = 0; img < image_count; img++)
                 {
@@ -797,34 +796,34 @@ namespace render_graph
                     const auto last  = resource_lifetimes.image_last_used_pass[img];
 
                     // Skip unused
-                    if (first == invalid_index) continue;
+                    if (first == invalid_pass) continue;
 
                     // Imported resources cannot be aliased (they are external)
                     // We assign them a unique ID but don't merge them.
                     if (meta_table.image_metas.is_imported[img])
                     {
-                        const auto unique_id = static_cast<resource_handle>(unique_resource_metas.unique_image_meta.size());
-                        unique_resource_metas.unique_image_meta.push_back(img);
-                        unique_resource_metas.res_to_unique_img_idx[img] = unique_id;
+                        const auto unique_id = static_cast<resource_handle>(physical_resource_metas.physical_image_meta.size());
+                        physical_resource_metas.physical_image_meta.push_back(img);
+                        physical_resource_metas.handle_to_physical_img_id[img] = unique_id;
                         // We don't track intervals for imported resources as we don't manage their memory
-                        unique_intervals.emplace_back(); 
+                        life_intervals.emplace_back(); 
                         continue;
                     }
 
                     bool assigned = false;
-                    for (size_t u = 0; u < unique_intervals.size(); u++)
+                    for (size_t u = 0; u < life_intervals.size(); u++)
                     {
                         // Skip if this unique resource slot is for an imported resource (empty intervals)
-                        if (unique_intervals[u].empty()) continue;
+                        if (life_intervals[u].empty()) continue;
 
                         // Check 1: Compatibility (Format, Size, etc.)
                         // For now, we require strict equality of meta.
-                        const auto rep_img = unique_resource_metas.unique_image_meta[u];
+                        const auto rep_img = physical_resource_metas.physical_image_meta[u];
                         if (!meta_table.image_metas.is_compatible(rep_img, img)) continue;
 
                         // Check 2: Overlap
                         bool overlaps = false;
-                        for (const auto& interval : unique_intervals[u])
+                        for (const auto& interval : life_intervals[u])
                         {
                             if (is_overlapping(first, last, interval.first, interval.second))
                             {
@@ -835,8 +834,8 @@ namespace render_graph
 
                         if (!overlaps)
                         {
-                            unique_intervals[u].emplace_back(first, last);
-                            unique_resource_metas.res_to_unique_img_idx[img] = static_cast<resource_handle>(u);
+                            life_intervals[u].emplace_back(first, last);
+                            physical_resource_metas.handle_to_physical_img_id[img] = static_cast<resource_handle>(u);
                             assigned = true;
                             break;
                         }
@@ -844,46 +843,46 @@ namespace render_graph
 
                     if (!assigned)
                     {
-                        const auto unique_id = static_cast<resource_handle>(unique_resource_metas.unique_image_meta.size());
-                        unique_resource_metas.unique_image_meta.push_back(img);
-                        unique_resource_metas.res_to_unique_img_idx[img] = unique_id;
-                        unique_intervals.push_back({{first, last}});
+                        const auto unique_id = static_cast<resource_handle>(physical_resource_metas.physical_image_meta.size());
+                        physical_resource_metas.physical_image_meta.push_back(img);
+                        physical_resource_metas.handle_to_physical_img_id[img] = unique_id;
+                        life_intervals.push_back({{first, last}});
                     }
                 }
             }
 
             // Buffers
             {
-                std::vector<std::vector<std::pair<uint32_t, uint32_t>>> unique_intervals;
-                unique_resource_metas.res_to_unique_buf_idx.assign(buffer_count, invalid_resource);
+                std::vector<std::vector<std::pair<uint32_t, uint32_t>>> life_intervals;
+                physical_resource_metas.handle_to_physical_buf_id.assign(buffer_count, invalid_resource);
 
                 for (resource_handle buf = 0; buf < buffer_count; buf++)
                 {
                     const auto first = resource_lifetimes.buffer_first_used_pass[buf];
                     const auto last  = resource_lifetimes.buffer_last_used_pass[buf];
 
-                    if (first == invalid_index) continue;
+                    if (first == invalid_pass) continue;
 
                     if (meta_table.buffer_metas.is_imported[buf])
                     {
-                        const auto unique_id = static_cast<resource_handle>(unique_resource_metas.unique_buffer_meta.size());
-                        unique_resource_metas.unique_buffer_meta.push_back(buf);
-                        unique_resource_metas.res_to_unique_buf_idx[buf] = unique_id;
-                        unique_intervals.emplace_back();
+                        const auto unique_id = static_cast<resource_handle>(physical_resource_metas.physical_buffer_meta.size());
+                        physical_resource_metas.physical_buffer_meta.push_back(buf);
+                        physical_resource_metas.handle_to_physical_buf_id[buf] = unique_id;
+                        life_intervals.emplace_back();
                         continue;
                     }
 
                     bool assigned = false;
-                    for (size_t u = 0; u < unique_intervals.size(); u++)
+                    for (size_t u = 0; u < life_intervals.size(); u++)
                     {
-                        if (unique_intervals[u].empty()) continue;
+                        if (life_intervals[u].empty()) continue;
 
                         // Check Compatibility
-                        const auto rep_buf = unique_resource_metas.unique_buffer_meta[u];
+                        const auto rep_buf = physical_resource_metas.physical_buffer_meta[u];
                         if (!meta_table.buffer_metas.is_compatible(rep_buf, buf)) continue;
 
                         bool overlaps = false;
-                        for (const auto& interval : unique_intervals[u])
+                        for (const auto& interval : life_intervals[u])
                         {
                             if (is_overlapping(first, last, interval.first, interval.second))
                             {
@@ -894,8 +893,8 @@ namespace render_graph
 
                         if (!overlaps)
                         {
-                            unique_intervals[u].emplace_back(first, last);
-                            unique_resource_metas.res_to_unique_buf_idx[buf] = static_cast<resource_handle>(u);
+                            life_intervals[u].emplace_back(first, last);
+                            physical_resource_metas.handle_to_physical_buf_id[buf] = static_cast<resource_handle>(u);
                             assigned = true;
                             break;
                         }
@@ -903,10 +902,10 @@ namespace render_graph
 
                     if (!assigned)
                     {
-                        const auto unique_id = static_cast<resource_handle>(unique_resource_metas.unique_buffer_meta.size());
-                        unique_resource_metas.unique_buffer_meta.push_back(buf);
-                        unique_resource_metas.res_to_unique_buf_idx[buf] = unique_id;
-                        unique_intervals.push_back({{first, last}});
+                        const auto unique_id = static_cast<resource_handle>(physical_resource_metas.physical_buffer_meta.size());
+                        physical_resource_metas.physical_buffer_meta.push_back(buf);
+                        physical_resource_metas.handle_to_physical_buf_id[buf] = unique_id;
+                        life_intervals.push_back({{first, last}});
                     }
                 }
             }

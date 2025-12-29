@@ -130,16 +130,16 @@ namespace render_graph::unit_test
 
         // 3. Check Aliasing
         // R1 [idx1, idx2] and R2 [idx2, idx3] overlap at idx2. Should NOT alias.
-        auto unique_r1 = rg.unique_resource_metas.res_to_unique_img_idx[state.r1];
-        auto unique_r2 = rg.unique_resource_metas.res_to_unique_img_idx[state.r2];
+        auto unique_r1 = rg.physical_resource_metas.handle_to_physical_img_id[state.r1];
+        auto unique_r2 = rg.physical_resource_metas.handle_to_physical_img_id[state.r2];
         assert(unique_r1 != unique_r2 && "R1 and R2 should not alias (overlap at P2)");
 
         // R1 [idx1, idx2] and R3 [idx3, idx4]. No overlap (idx2 < idx3). Should alias.
-        auto unique_r3 = rg.unique_resource_metas.res_to_unique_img_idx[state.r3];
+        auto unique_r3 = rg.physical_resource_metas.handle_to_physical_img_id[state.r3];
         assert(unique_r1 == unique_r3 && "R1 and R3 should alias (no overlap)");
 
         // R4 does not overlap, but meta is different -> must NOT alias.
-        auto unique_r4 = rg.unique_resource_metas.res_to_unique_img_idx[state.r4];
+        auto unique_r4 = rg.physical_resource_metas.handle_to_physical_img_id[state.r4];
         assert(unique_r1 != unique_r4 && "R4 meta differs; should not alias with R1");
 
         std::cout << "Lifetime & Aliasing Test Passed!" << std::endl;

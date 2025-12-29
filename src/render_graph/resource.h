@@ -232,19 +232,19 @@ namespace render_graph
         }
     };
 
-    struct unique_resource_meta
+    struct physical_resource_meta
     {
-        std::vector<resource_handle> unique_image_meta;
-        std::vector<uint32_t> res_to_unique_img_idx; // Indexed by resource_handle
-        std::vector<resource_handle> unique_buffer_meta;
-        std::vector<uint32_t> res_to_unique_buf_idx; // Indexed by resource_handle
+        std::vector<resource_handle> physical_image_meta;
+        std::vector<uint32_t> handle_to_physical_img_id; // Indexed by resource_handle
+        std::vector<resource_handle> physical_buffer_meta;
+        std::vector<uint32_t> handle_to_physical_buf_id; // Indexed by resource_handle
 
         void clear()
         {
-            unique_image_meta.clear();
-            unique_buffer_meta.clear();
-            res_to_unique_img_idx.clear();
-            res_to_unique_buf_idx.clear();
+            physical_image_meta.clear();
+            physical_buffer_meta.clear();
+            handle_to_physical_img_id.clear();
+            handle_to_physical_buf_id.clear();
         }
     };
 
