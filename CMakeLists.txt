@@ -33,7 +33,15 @@ add_subdirectory(src/_templates)
 add_subdirectory(src/_interface)
 add_subdirectory(src/render_graph)
 
-add_subdirectory(third_party/digital-content-loader)
+# third_party/digital-content-loader
+# The upstream project can optionally build sample/test executables which require their own entry points.
+# Disable them by default to keep the main build green; opt-in via this option if needed.
+option(CGLAB_BUILD_DCL_SAMPLES "Build digital-content-loader sample executables" OFF)
+set(DCL_BUILD_SAMPLES ${CGLAB_BUILD_DCL_SAMPLES} CACHE BOOL "Build sample/test executables (digital-content-loader)" FORCE)
+
+# Exclude third-party targets (notably sample executables) from the default ALL build.
+# The required library targets will still be built because VulkanSample links against them.
+add_subdirectory(third_party/digital-content-loader EXCLUDE_FROM_ALL)
 
 # 设置源文件
 set(SOURCES
