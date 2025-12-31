@@ -52,6 +52,7 @@ Diagnostics:
       - cppcoreguidelines-c-copy-assignment-signature
       - cppcoreguidelines-pro-bounds-constant-array-index
       - cppcoreguidelines-pro-type-vararg
+      - bugprone-easily-swappable-parameters
     
     # C++ Core Guidelines 命名规范设置 (NL.10: 倾向于 snake_case)
     CheckOptions:
@@ -92,6 +93,12 @@ Diagnostics:
       
       # 命名空间：lower_case
       readability-identifier-naming.NamespaceCase: lower_case
+
+      # 变量或参数长度限制
+      readability-identifier-length.MinimumVariableNameLength: 2
+      readability-identifier-length.MinimumParameterNameLength: 1
+      readability-identifier-length.MinimumLoopCounterNameLength: 1
+      readability-identifier-length.MinimumExceptionNameLength: 1
       
       # 函数长度限制
       readability-function-size.LineThreshold: 200
