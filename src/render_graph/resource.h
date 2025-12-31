@@ -17,17 +17,17 @@ namespace render_graph
 
     inline constexpr resource_version_handle invalid_resource_version = 0xFFFFFFFFFFFFFFFFULL;
 
-    [[nodiscard]] inline constexpr resource_version_handle pack(resource_handle index, version_handle version) noexcept
+    [[nodiscard]] constexpr resource_version_handle pack(resource_handle index, version_handle version) noexcept
     {
         return (static_cast<resource_version_handle>(version) << 32) | static_cast<resource_version_handle>(index);
     }
 
-    [[nodiscard]] inline constexpr resource_handle unpack_to_resource(resource_version_handle handle) noexcept
+    [[nodiscard]] constexpr resource_handle unpack_to_resource(resource_version_handle handle) noexcept
     {
         return static_cast<resource_handle>(handle & 0xFFFFFFFF);
     }
 
-    [[nodiscard]] inline constexpr version_handle unpack_to_version(resource_version_handle handle) noexcept
+    [[nodiscard]] constexpr version_handle unpack_to_version(resource_version_handle handle) noexcept
     {
         return static_cast<version_handle>((handle >> 32) & 0xFFFFFFFF);
     }

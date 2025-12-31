@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "backend.h"
+#include "barrier.h"
 #include "graph.h"
 #include "resource.h"
 
@@ -44,6 +45,10 @@ namespace render_graph
         // backend related
         backend* backend = nullptr;
 
+        // Barrier plan generated during compile().
+        // Indexed by pass_handle; only active passes are consumed by execute().
+        per_pass_barrier per_pass_barriers;
+
         void set_backend(class backend* backend_ptr) { backend = backend_ptr; }
 
         // 1. Add Pass System
@@ -69,25 +74,21 @@ namespace render_graph
 
             // Reset dependency storage
             image_read_deps.read_list.clear();
+            image_read_deps.usage_bits.clear();
             image_read_deps.begins.assign(pass_count, 0);
             image_read_deps.lengthes.assign(pass_count, 0);
-            image_read_deps.image_usages.clear();
-            image_read_deps.buffer_usages.clear();
             image_write_deps.write_list.clear();
+            image_write_deps.usage_bits.clear();
             image_write_deps.begins.assign(pass_count, 0);
             image_write_deps.lengthes.assign(pass_count, 0);
-            image_write_deps.image_usages.clear();
-            image_write_deps.buffer_usages.clear();
             buffer_read_deps.read_list.clear();
+            buffer_read_deps.usage_bits.clear();
             buffer_read_deps.begins.assign(pass_count, 0);
             buffer_read_deps.lengthes.assign(pass_count, 0);
-            buffer_read_deps.image_usages.clear();
-            buffer_read_deps.buffer_usages.clear();
             buffer_write_deps.write_list.clear();
+            buffer_write_deps.usage_bits.clear();
             buffer_write_deps.begins.assign(pass_count, 0);
             buffer_write_deps.lengthes.assign(pass_count, 0);
-            buffer_write_deps.image_usages.clear();
-            buffer_write_deps.buffer_usages.clear();
             output_table.image_outputs.clear();
             output_table.buffer_outputs.clear();
 
@@ -910,36 +911,249 @@ namespace render_graph
                 }
             }
 
+            // Step I: Build Synchronization Plan  (Barriers)
+            // Build an API-agnostic per-pass barrier list based on scheduled order.
+
+            per_pass_barriers.clear();
+            per_pass_barriers.resize_passes(pass_count);
+
+            // Scratch per-pass AoS; we will flatten into per_pass_barrier (CSR + SoA) afterwards.
+            std::vector<std::vector<barrier_op>> scratch(pass_count);
+
+            struct last_use
+            {
+                resource_handle logical   = 0;
+                uint32_t usage_bits       = 0;
+                pipeline_domain domain    = pipeline_domain::any;
+                access_type access        = access_type::read;
+                bool valid                = false;
+            };
+
+            const auto invalid_physical = invalid_resource;
+            std::vector<last_use> last_img_use(physical_resource_metas.physical_image_meta.size());
+            std::vector<last_use> last_buf_use(physical_resource_metas.physical_buffer_meta.size());
+
+            auto to_access = [](bool has_read, bool has_write) -> access_type
+            {
+                if (has_read && has_write) return access_type::read_write;
+                if (has_write) return access_type::write;
+                return access_type::read;
+            };
+
+            auto needs_uav_like = [](resource_kind kind, uint32_t usage_bits) -> bool
+            {
+                if (kind == resource_kind::image)
+                {
+                    return (usage_bits & static_cast<uint32_t>(image_usage::STORAGE)) != 0;
+                }
+                return (usage_bits & static_cast<uint32_t>(buffer_usage::STORAGE_BUFFER)) != 0;
+            };
+
+            auto insert_barrier = [&](pass_handle pass,
+                                    resource_kind kind,
+                                    resource_handle logical,
+                                    resource_handle physical,
+                                    access_type desired_access,
+                                    uint32_t desired_usage_bits)
+            {
+                // validate physical id
+                if (physical == invalid_physical) return;
+
+                // get last use record
+                auto& last_vec = (kind == resource_kind::image) ? last_img_use : last_buf_use;
+                if (physical >= last_vec.size()) return;
+                auto& last = last_vec[physical];
+
+                // if this physical id was previously used by a different logical resource, insert an aliasing barrier.
+                if (last.valid && last.logical != logical)
+                {
+                    barrier_op op;
+                    op.type         = barrier_op_type::aliasing;
+                    op.kind         = kind;
+                    op.logical      = logical;
+                    op.prev_logical = last.logical;
+                    op.physical     = physical;
+                    scratch[pass].push_back(op);
+                }
+
+                // if state/usage changed across passes, insert a transition op.
+                // note: backends decide what 'transition' means (Vk layout+barrier, D3D12 state transition, etc.).
+                if (last.valid)
+                {
+                    const bool changed = (last.usage_bits != desired_usage_bits) || (last.access != desired_access) || (last.domain != pipeline_domain::any);
+                    if (changed)
+                    {
+                        barrier_op op;
+                        op.type          = barrier_op_type::transition;
+                        op.kind          = kind;
+                        op.logical       = logical;
+                        op.physical      = physical;
+                        op.src_domain    = last.domain;
+                        op.dst_domain    = pipeline_domain::any;
+                        op.src_access    = last.access;
+                        op.dst_access    = desired_access;
+                        op.src_usage_bits = last.usage_bits;
+                        op.dst_usage_bits = desired_usage_bits;
+                        scratch[pass].push_back(op);
+                    }
+
+                    // UAV-like ordering: write -> (read/write) on storage resources.
+                    if (last.access != access_type::read && needs_uav_like(kind, desired_usage_bits))
+                    {
+                        barrier_op op;
+                        op.type     = barrier_op_type::uav;
+                        op.kind     = kind;
+                        op.logical  = logical;
+                        op.physical = physical;
+                        scratch[pass].push_back(op);
+                    }
+                }
+                
+                // Update last use info
+                last.valid      = true;
+                last.logical    = logical;
+                last.access     = desired_access;
+                last.domain     = pipeline_domain::any;
+                last.usage_bits = desired_usage_bits;
+            };
+
+            // Walk scheduled passes and build barriers for all resources they touch.
+            for (const auto pass : sorted_passes)
+            {
+                // Images used by this pass
+                {
+                    std::unordered_map<resource_handle, std::pair<bool, bool>> rw; // logical -> {read, write}
+                    std::unordered_map<resource_handle, uint32_t> usage;
+
+                    const auto r_begin  = image_read_deps.begins[pass];
+                    const auto r_len    = image_read_deps.lengthes[pass];
+                    for (auto j = r_begin; j < r_begin + r_len; j++)
+                    {
+                        const auto logical = image_read_deps.read_list[j];
+                        rw[logical].first  = true;
+                        usage[logical] |= image_read_deps.usage_bits[j];
+                    }
+
+                    const auto w_begin = image_write_deps.begins[pass];
+                    const auto w_len   = image_write_deps.lengthes[pass];
+                    for (auto j = w_begin; j < w_begin + w_len; j++)
+                    {
+                        const auto logical  = image_write_deps.write_list[j];
+                        rw[logical].second  = true;
+                        usage[logical] |= image_write_deps.usage_bits[j];
+                    }
+
+                    for (const auto& [logical, flags] : rw)
+                    {
+                        const auto physical = (logical < physical_resource_metas.handle_to_physical_img_id.size())
+                                                  ? static_cast<resource_handle>(physical_resource_metas.handle_to_physical_img_id[logical])
+                                                  : invalid_physical;
+                        insert_barrier(pass, resource_kind::image, logical, physical, to_access(flags.first, flags.second), usage[logical]);
+                    }
+                }
+
+                // Buffers used by this pass
+                {
+                    std::unordered_map<resource_handle, std::pair<bool, bool>> rw; // logical -> {read, write}
+                    std::unordered_map<resource_handle, uint32_t> usage;
+
+                    const auto r_begin  = buffer_read_deps.begins[pass];
+                    const auto r_len    = buffer_read_deps.lengthes[pass];
+                    for (auto j = r_begin; j < r_begin + r_len; j++)
+                    {
+                        const auto logical = buffer_read_deps.read_list[j];
+                        rw[logical].first  = true;
+                        usage[logical] |= buffer_read_deps.usage_bits[j];
+                    }
+
+                    const auto w_begin = buffer_write_deps.begins[pass];
+                    const auto w_len   = buffer_write_deps.lengthes[pass];
+                    for (auto j = w_begin; j < w_begin + w_len; j++)
+                    {
+                        const auto logical = buffer_write_deps.write_list[j];
+                        rw[logical].second = true;
+                        usage[logical] |= buffer_write_deps.usage_bits[j];
+                    }
+
+                    for (const auto& [logical, flags] : rw)
+                    {
+                        const auto physical = (logical < physical_resource_metas.handle_to_physical_buf_id.size())
+                                                  ? static_cast<resource_handle>(physical_resource_metas.handle_to_physical_buf_id[logical])
+                                                  : invalid_physical;
+                        insert_barrier(pass, resource_kind::buffer, logical, physical, to_access(flags.first, flags.second), usage[logical]);
+                    }
+                }
+            }
+
+            // Flatten scratch into per_pass_barrier (CSR + SoA).
+            uint32_t barrier_running = 0;
+            for (pass_handle pass = 0; pass < pass_count; pass++)
+            {
+                per_pass_barriers.pass_begins[pass]  = barrier_running;
+                per_pass_barriers.pass_lengths[pass] = static_cast<uint32_t>(scratch[pass].size());
+                barrier_running += per_pass_barriers.pass_lengths[pass];
+            }
+            per_pass_barriers.pass_begins[pass_count] = barrier_running;
+
+            per_pass_barriers.resize_ops(barrier_running);
+
+            for (pass_handle pass = 0; pass < pass_count; pass++)
+            {
+                const auto base = per_pass_barriers.pass_begins[pass];
+                const auto len  = per_pass_barriers.pass_lengths[pass];
+                for (uint32_t i = 0; i < len; i++)
+                {
+                    const auto& op = scratch[pass][i];
+                    const auto idx = base + i;
+
+                    per_pass_barriers.types[idx] = op.type;
+                    per_pass_barriers.kinds[idx] = op.kind;
+                    per_pass_barriers.logicals[idx] = op.logical;
+                    per_pass_barriers.physicals[idx] = op.physical;
+                    per_pass_barriers.src_domains[idx] = op.src_domain;
+                    per_pass_barriers.dst_domains[idx] = op.dst_domain;
+                    per_pass_barriers.src_accesses[idx] = op.src_access;
+                    per_pass_barriers.dst_accesses[idx] = op.dst_access;
+                    per_pass_barriers.src_usage_bits[idx] = op.src_usage_bits;
+                    per_pass_barriers.dst_usage_bits[idx] = op.dst_usage_bits;
+                    per_pass_barriers.prev_logicals[idx] = op.prev_logical;
+                }
+            }
+
+
             // Step I: Physical Resource Allocation (Not yet implemented)
             // Create actual GPU resources for live, non-imported resources.
             // - Filter out culled passes and unused resources
             // - Imported resources: do not create; expect bind_imported_* later (frame loop)
             // - Call backend to create/realize resources (possibly from pools)
 
-            // Step J: Synchronization / Barrier Planning (Not yet implemented)
-            // Build per-pass barrier lists based on resource access transitions between passes.
-            // - Vulkan: layout transitions + src/dst stage/access
-            // - DX12: resource state transitions
-            // Output:
-            // - per-pass barrier plan consumed by execute()
-
-            // Step K: Execute Plan Build (Not yet implemented)
-            // Finalize everything execute() needs:
-            // - ordered pass list
-            // - per-pass execute context (resolved resource handles)
-            // - per-pass barrier plan
+            
         }
 
         // 3. Execution System
-        void execute() { }
+        void execute()
+        {
+            if (backend == nullptr)
+            {
+                return;
+            }
+
+            pass_execute_context exec_ctx{.backend = backend};
+
+            for (const auto pass : sorted_passes)
+            {
+                backend->apply_barriers(pass, per_pass_barriers);
+
+                if (pass < graph.execute_funcs.size() && graph.execute_funcs[pass] != nullptr)
+                {
+                    graph.execute_funcs[pass](exec_ctx);
+                }
+            }
+        }
 
         void clear()
         {
             meta_table.clear();
-            if (backend != nullptr)
-            {
-                backend->destroy_resources();
-            }
         }
 
         // Kahn-based cycle validation for a pass dependency DAG.

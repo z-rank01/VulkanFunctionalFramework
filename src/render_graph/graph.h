@@ -14,20 +14,18 @@ namespace render_graph
     struct read_dependency
     {
         std::vector<resource_handle> read_list;
+        std::vector<uint32_t> usage_bits;
         std::vector<resource_handle> begins;
         std::vector<resource_handle> lengthes;
-        std::vector<image_usage> image_usages;
-        std::vector<buffer_usage> buffer_usages;
     };
 
     // one dimesion array to represent the write resource of each pass
     struct write_dependency
     {
         std::vector<resource_handle> write_list;
+        std::vector<uint32_t> usage_bits;
         std::vector<resource_handle> begins;
         std::vector<resource_handle> lengthes;
-        std::vector<image_usage> image_usages;
-        std::vector<buffer_usage> buffer_usages;
     };
 
     // graph/pass context
@@ -69,14 +67,14 @@ namespace render_graph
         void read_image(resource_handle resource, image_usage usage) const
         {
             image_read_deps->read_list.push_back(resource);
+            image_read_deps->usage_bits.push_back(static_cast<uint32_t>(usage));
             image_read_deps->lengthes[current_pass]++;
-            image_read_deps->image_usages.push_back(usage);
         }
         void read_buffer(resource_handle resource, buffer_usage usage) const
         {
             buffer_read_deps->read_list.push_back(resource);
+            buffer_read_deps->usage_bits.push_back(static_cast<uint32_t>(usage));
             buffer_read_deps->lengthes[current_pass]++;
-            buffer_read_deps->buffer_usages.push_back(usage);
         }
 
         // write
@@ -84,21 +82,21 @@ namespace render_graph
         void write_image(resource_handle resource, image_usage usage) const
         {
             image_write_deps->write_list.push_back(resource);
+            image_write_deps->usage_bits.push_back(static_cast<uint32_t>(usage));
             image_write_deps->lengthes[current_pass]++;
-            image_write_deps->image_usages.push_back(usage);
         }
         void write_buffer(resource_handle resource, buffer_usage usage) const
         {
             buffer_write_deps->write_list.push_back(resource);
+            buffer_write_deps->usage_bits.push_back(static_cast<uint32_t>(usage));
             buffer_write_deps->lengthes[current_pass]++;
-            buffer_write_deps->buffer_usages.push_back(usage);
         }
     };
 
     // context passed to the execution lambda
     struct pass_execute_context
     {
-        const backend* backend;
+        backend* backend;
         // void* command_buffer; // Abstract command buffer
     };
 

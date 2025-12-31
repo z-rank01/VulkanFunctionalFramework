@@ -36,10 +36,13 @@ namespace render_graph
     class vulkan_backend : public backend
     {
     public:
-        vulkan_image_table physical_images;
-        // VulkanBufferTable physical_buffers;
-
         VkDevice device; // Assumed to be initialized
+
+        void apply_barriers(pass_handle /*pass*/, const per_pass_barrier& /*plan*/) override
+        {
+            // TODO: Lower barrier_op into VkImageMemoryBarrier2/VkBufferMemoryBarrier2 etc.
+            // Intentionally kept empty for now.
+        }
 
         // Helper to convert generic format to Vulkan format
         static VkFormat to_vk_format(format format)
@@ -63,46 +66,7 @@ namespace render_graph
             return flags;
         }
 
-        void create_resources(const resource_meta_table& registry) override
-        {
-            // 1. Resize physical tables to match meta tables
-            size_t image_count = registry.image_metas.names.size();
-            physical_images.resize(image_count);
-
-            // 2. Iterate and create resources
-            for (size_t i = 0; i < image_count; ++i)
-            {
-                // Skip if imported or transient (handled differently)
-                if (registry.image_metas.is_imported[i]) continue;
-
-                // Convert Meta to Vulkan Create Info
-                VkImageCreateInfo create_info = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
-                create_info.imageType = VK_IMAGE_TYPE_2D;
-                create_info.format = to_vk_format(registry.image_metas.formats[i]);
-                create_info.extent = { .width=registry.image_metas.extents[i].width, .height=registry.image_metas.extents[i].height, .depth=registry.image_metas.extents[i].depth };
-                create_info.mipLevels = registry.image_metas.mip_levels[i];
-                create_info.arrayLayers = registry.image_metas.array_layers[i];
-                create_info.samples = static_cast<VkSampleCountFlagBits>(registry.image_metas.sample_counts[i]);
-                create_info.tiling = VK_IMAGE_TILING_OPTIMAL;
-                create_info.usage = to_vk_usage(registry.image_metas.usages[i]);
-                
-                // Store the converted format for later use
-                physical_images.vk_formats[i] = create_info.format;
-
-                // Actual Vulkan creation (simplified)
-                // vkCreateImage(device, &create_info, nullptr, &physical_images.images[i]);
-                // Allocate memory...
-                // Bind memory...
-                // Create ImageView...
-                
-                std::cout << "Created Vulkan Image: " << registry.image_metas.names[i] << '\n';
-            }
-        }
-
-        void destroy_resources() override
-        {
-            // Loop and destroy
-            physical_images.clear();
-        }
+        // Physical resource creation/lifetime is user-owned.
+        // This backend will later only lower abstract barrier ops to Vulkan barriers.
     };
 }

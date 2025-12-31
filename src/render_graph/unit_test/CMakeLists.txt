@@ -3,6 +3,7 @@
 # so they are always built even if the test functions are not referenced.
 
 add_library(render_graph_unit_tests OBJECT
+    barrier_plan_test.cpp
     deferred_rendering_compile_test.cpp
     resource_producer_map_compile_test.cpp
     resource_generation_compile_test.cpp

@@ -1,23 +1,26 @@
 #pragma once
 
+#include <vector>
+
+#include "barrier.h"
 #include "resource.h"
 
 namespace render_graph
 {
     // Abstract interface for the render backend (Vulkan, DX12, Metal)
-    // The backend is responsible for allocating physical resources based on the Meta Registry.
+    // NOTE:
+    // - Physical resource creation/lifetime is owned by the user side (outside the render graph).
+    // - The render graph only builds an execution plan (including abstract barriers).
     class backend
     {
     public:
         virtual ~backend() = default;
 
-        // Called after the Render Graph is compiled and culled.
-        // The backend should iterate over the registry and create resources that are not culled.
-        virtual void create_resources(const resource_meta_table& registry) = 0;
+        // Backend consumes the compiled plan to apply synchronization and execute passes.
+        // Concrete backends implement lowering to API-specific synchronization primitives.
+        // (Declared in barrier.h / plan types to avoid including any graphics API headers here.)
 
-        // Called to destroy resources
-        virtual void destroy_resources() = 0;
-
-        // ... execute_pass, etc.
+        // Apply all barriers that must happen before executing this pass.
+        virtual void apply_barriers(pass_handle pass, const per_pass_barrier& plan) = 0;
     };
 }
