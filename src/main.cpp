@@ -3,8 +3,8 @@
 #include <algorithm>
 #include <iostream>
 
-#include "_gltf/gltf_loader.h"
-#include "_gltf/gltf_parser.h"
+#include <gltf/gltf_loader.h>
+#include <gltf/gltf_parser.h>
 #include "app_sample.h"
 #include "utility/config_reader.h"
 #include "utility/logger.h"

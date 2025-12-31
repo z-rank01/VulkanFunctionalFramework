@@ -24,16 +24,16 @@ find_package(glm CONFIG REQUIRED)
 find_package(imgui CONFIG REQUIRED)
 find_package(Stb REQUIRED)
 
-
 # 添加子目录
 add_subdirectory(src/utility)
 add_subdirectory(src/_old)
 add_subdirectory(src/_callable)
 add_subdirectory(src/_vra)
-add_subdirectory(src/_gltf)
 add_subdirectory(src/_templates)
 add_subdirectory(src/_interface)
 add_subdirectory(src/render_graph)
+
+add_subdirectory(third_party/digital-content-loader)
 
 # 设置源文件
 set(SOURCES
@@ -66,7 +66,7 @@ target_link_libraries(VulkanSample
     imgui::imgui
     utility                         # 添加 utility 库
     vulkan_resource_allocator       # 添加 vra 库
-    gltf_helper                     # 添加 gltf_helper 库
+        dcl::gltf                       # glTF loader/parser (third_party/digital-content-loader)
     vulkan_old_class                # 添加旧的 Vulkan 类库
     callable                        # 添加可调用库
     template                        # 添加模板库

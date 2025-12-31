@@ -8,7 +8,7 @@
 #include <memory>
 #include <unordered_set>
 
-#include "_gltf/gltf_data.h"
+#include <gltf/gltf_data.h>
 #include "_interface/camera_system.h"
 #include "_interface/sdl_window.h" // For default implementation
 #include "_interface/window.h"
