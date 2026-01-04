@@ -6,4 +6,4 @@
 	url = https://github.com/z-rank01/digital-content-loader.git
 [submodule "third_party/render-graph"]
 	path = third_party/render-graph
-	url = https://github.com/z-rank01/render-graph.git
+	url = git@github.com:z-rank01/render-graph.git

@@ -44,10 +44,16 @@ set(DCL_BUILD_SAMPLES ${CGLAB_BUILD_DCL_SAMPLES} CACHE BOOL "Build sample/test e
 # The required library targets will still be built because VulkanSample links against them.
 add_subdirectory(third_party/digital-content-loader EXCLUDE_FROM_ALL)
 
-# thrid_party/render-graph
+# third_party/render-graph
+option(CGLAB_BUILD_RENDER_GRAPH_SAMPLES "Build render-graph sample executables" OFF)
+option(CGLAB_BUILD_RENDER_GRAPH_UNIT_TESTS "Build render-graph unit-test object library" OFF)
+option(CGLAB_RENDER_GRAPH_SHARED "Build render_graph as a shared library (DLL)" OFF)
 
-option(VULKAN_RG_BUILD_SAMPLES "Build vulkan sample/test executables (may require Vulkan)" OFF)
-option(DIRECTX_RG_BUILD_SAMPLES "Build directx sample/test executables (may require DirectX)" OFF)
+# Pass options into the submodule.
+set(RENDER_GRAPH_BUILD_SAMPLES ${CGLAB_BUILD_RENDER_GRAPH_SAMPLES} CACHE BOOL "Build render-graph sample executables" FORCE)
+set(RENDER_GRAPH_BUILD_UNIT_TESTS ${CGLAB_BUILD_RENDER_GRAPH_UNIT_TESTS} CACHE BOOL "Build render-graph unit-test object library" FORCE)
+set(RENDER_GRAPH_BUILD_SHARED ${CGLAB_RENDER_GRAPH_SHARED} CACHE BOOL "Build render_graph as a shared library (DLL)" FORCE)
+
 add_subdirectory(third_party/render-graph EXCLUDE_FROM_ALL)
 
 # 设置源文件
@@ -66,9 +72,14 @@ set(HEADERS
 # 添加可执行文件
 add_executable(VulkanSample ${SOURCES} ${HEADERS})
 
-# Unit tests (render_graph/unit_test) are built as an OBJECT library.
-# This keeps the top-level CMakeLists clean and ensures the unit-test sources are always compiled.
-target_sources(VulkanSample PRIVATE $<TARGET_OBJECTS:render_graph_unit_tests>)
+if (CGLAB_BUILD_RENDER_GRAPH_UNIT_TESTS)
+    target_compile_definitions(VulkanSample PRIVATE CGLAB_ENABLE_RENDER_GRAPH_UNIT_TESTS)
+endif()
+
+# Optional: compile render-graph unit-test sources into the main executable.
+if (TARGET render_graph_unit_tests)
+    target_sources(VulkanSample PRIVATE $<TARGET_OBJECTS:render_graph_unit_tests>)
+endif()
 
 # 链接库
 target_link_libraries(VulkanSample
