@@ -54,7 +54,13 @@ set(RENDER_GRAPH_BUILD_SAMPLES ${CGLAB_BUILD_RENDER_GRAPH_SAMPLES} CACHE BOOL "B
 set(RENDER_GRAPH_BUILD_UNIT_TESTS ${CGLAB_BUILD_RENDER_GRAPH_UNIT_TESTS} CACHE BOOL "Build render-graph unit-test object library" FORCE)
 set(RENDER_GRAPH_BUILD_SHARED ${CGLAB_RENDER_GRAPH_SHARED} CACHE BOOL "Build render_graph as a shared library (DLL)" FORCE)
 
-add_subdirectory(third_party/render-graph EXCLUDE_FROM_ALL)
+if (CGLAB_BUILD_RENDER_GRAPH_SAMPLES)
+    # When opt-in samples are enabled, include them in the default build so users
+    # can build/debug without manually selecting individual sample targets.
+    add_subdirectory(third_party/render-graph)
+else()
+    add_subdirectory(third_party/render-graph EXCLUDE_FROM_ALL)
+endif()
 
 # 设置源文件
 set(SOURCES

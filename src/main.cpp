@@ -19,7 +19,7 @@
 // #include "render_graph/unit_test/dag_cycle_compile_test.h"   // unit test
 // #include "render_graph/unit_test/lifetime_aliasing_test.h"   // unit test
 // #include "render_graph/unit_test/barrier_plan_test.h"   // unit test
-#include "render_graph/unit_test/culling_compile_test.h"   // unit test
+// #include "render_graph/unit_test/culling_compile_test.h"   // unit test
 #endif
 
 int main()
@@ -29,7 +29,7 @@ int main()
     // render_graph::unit_test::resource_producer_map_compile_test();
     // render_graph::unit_test::resource_generation_compile_test();
     // render_graph::unit_test::validation_compile_test();
-    render_graph::unit_test::culling_compile_test();
+    // render_graph::unit_test::culling_compile_test();
     // render_graph::unit_test::dag_compile_test();
     // render_graph::unit_test::dag_cycle_compile_test();
     // render_graph::unit_test::lifetime_aliasing_test();
