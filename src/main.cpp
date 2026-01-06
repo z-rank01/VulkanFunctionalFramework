@@ -19,7 +19,6 @@
 // #include "render_graph/unit_test/dag_cycle_compile_test.h"   // unit test
 // #include "render_graph/unit_test/lifetime_aliasing_test.h"   // unit test
 // #include "render_graph/unit_test/barrier_plan_test.h"   // unit test
-// #include "render_graph/unit_test/culling_compile_test.h"   // unit test
 #endif
 
 int main()

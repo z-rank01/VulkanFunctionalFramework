@@ -101,12 +101,12 @@ Diagnostics:
       readability-identifier-length.MinimumExceptionNameLength: 1
       
       # 函数长度限制
-      readability-function-size.LineThreshold: 200
-      readability-function-size.StatementThreshold: 800
-      readability-function-size.BranchThreshold: 50
-      readability-function-size.ParameterThreshold: 8
-      readability-function-size.NestingThreshold: 6
-      readability-function-size.VariableThreshold: 200
+      ; readability-function-size.LineThreshold: 200
+      ; readability-function-size.StatementThreshold: 800
+      ; readability-function-size.BranchThreshold: 50
+      ; readability-function-size.ParameterThreshold: 8
+      ; readability-function-size.NestingThreshold: 6
+      ; readability-function-size.VariableThreshold: 200
       
       # 行长度
       readability-line-length.LineLength: 100
